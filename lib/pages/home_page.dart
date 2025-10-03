@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-// ADDED: This line tells the home page where to find the AppIcon widget.
 import 'package:gearhead_wizard/main.dart';
 
 // Data class for our tools, using an asset path for the icon
@@ -65,7 +64,6 @@ class HomePage extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          // This will now work correctly because of the new import.
           const AppIcon(size: 120),
           const SizedBox(height: 16),
           Text(
@@ -87,7 +85,7 @@ class HomePage extends StatelessWidget {
               crossAxisCount: 2,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 1.4,
+              childAspectRatio: 1.2, // Adjusted for new layout
             ),
             itemCount: _tools.length,
             shrinkWrap: true,
@@ -160,16 +158,20 @@ class _ToolActionCard extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(14),
+          // UPDATED: This Column now centers its children
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            // CHANGED: from CrossAxisAlignment.start to center
+            crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              ImageIcon(AssetImage(iconAsset), size: 28, color: cs.primary),
+              // CHANGED: Increased the icon size for better visibility
+              ImageIcon(AssetImage(iconAsset), size: 40, color: cs.primary),
               const SizedBox(height: 8),
               Text(title,
                   style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 2),
               Text(subtitle,
+                  textAlign: TextAlign.center, // Added for better centering
                   style:
                       TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
             ],

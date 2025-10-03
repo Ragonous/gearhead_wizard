@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'pages/home_page.dart';
-import 'pages/turbo_calculator_page.dart';
-import 'pages/gear_ratio_calculator_page.dart';
-import 'pages/crankshaft_page.dart';
-import 'pages/engine_page.dart';
-import 'pages/connecting_rod_page.dart';
-import 'pages/piston_page.dart';
+import 'package:gearhead_wizard/pages/connecting_rod_page.dart';
+import 'package:gearhead_wizard/pages/crankshaft_page.dart';
+import 'package:gearhead_wizard/pages/engine_page.dart';
+import 'package:gearhead_wizard/pages/gear_ratio_calculator_page.dart';
+import 'package:gearhead_wizard/pages/home_page.dart';
+import 'package:gearhead_wizard/pages/piston_page.dart';
+import 'package:gearhead_wizard/pages/turbo_calculator_page.dart';
 
 void main() => runApp(const GearheadWizardApp());
 
@@ -18,13 +18,19 @@ class GearheadWizardApp extends StatelessWidget {
       title: 'Gearhead Wizard',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2E4035),
-          primary: const Color(0xFF2E4035), // Dark Olive Green
-          secondary: const Color(0xFFD97706), // Orange accent
-          surface: const Color(0xFFF9FAFB), // Light gray background
-          onSurface: const Color(0xFF1F2937), // Dark text
+          seedColor: const Color(0xFF3A4F41), // Dark Olive Green
+          primary: const Color(0xFF3A4F41),
+          secondary: const Color(0xFFD98D30), // Orange accent
+          brightness: Brightness.light,
         ),
         useMaterial3: true,
+        // UPDATED: Added NavigationBarTheme to control the look of the bottom bar
+        navigationBarTheme: NavigationBarThemeData(
+          // Adjust the label text style to prevent wrapping
+          labelTextStyle: MaterialStateProperty.all(
+            const TextStyle(fontSize: 11.0, fontWeight: FontWeight.w500),
+          ),
+        ),
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(),
         ),
@@ -43,20 +49,20 @@ class RootScaffold extends StatefulWidget {
 class _RootScaffoldState extends State<RootScaffold> {
   int _index = 0;
 
-  void _onNavigate(int index) {
+  // Callback function to allow HomePage to change the tab
+  void _navigateToTab(int index) {
     setState(() {
       _index = index;
     });
   }
 
-  // The list of pages is now built using the onNavigate callback
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     _pages = [
-      HomePage(onNavigate: _onNavigate), // Pass the callback here
+      HomePage(onNavigate: _navigateToTab), // Pass the callback here
       const TurboCalculatorPage(),
       const GearRatioCalculatorPage(),
       const CrankshaftPage(),
@@ -76,8 +82,7 @@ class _RootScaffoldState extends State<RootScaffold> {
     'Piston'
   ];
 
-  // List of icon asset paths
-  static const List<String> _iconAssets = [
+  final _icons = const [
     'assets/icons/home_icon.png',
     'assets/icons/turbo_icon.png',
     'assets/icons/gears_icon.png',
@@ -116,26 +121,18 @@ class _RootScaffoldState extends State<RootScaffold> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        // Use a map to generate the destinations
-        destinations: _titles.asMap().entries.map((entry) {
-          int idx = entry.key;
-          String title = entry.value;
-
-          // For the home tab, we keep the label. For others, just the icon.
+        destinations: List.generate(_titles.length, (i) {
           return NavigationDestination(
-            // UPDATED: Increased icon size from 24 (default) to 30
-            icon: ImageIcon(AssetImage(_iconAssets[idx]), size: 30),
-            label: title == 'Home'
-                ? 'Home'
-                : title.split(' ').first, // Use first word for label
+            icon: ImageIcon(AssetImage(_icons[i]), size: 28),
+            label: _titles[i] == 'Connecting Rod' ? 'Con. Rod' : _titles[i],
           );
-        }).toList(),
+        }),
       ),
     );
   }
 }
 
-// Re-usable AppIcon widget from ui_helpers.dart (can be kept here or moved)
+// AppIcon widget is now defined here to be accessible by the About dialog.
 class AppIcon extends StatelessWidget {
   final double size;
   const AppIcon({super.key, required this.size});
@@ -151,10 +148,10 @@ class AppIcon extends StatelessWidget {
           'assets/logo.png',
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
+            // Fallback if assets/logo.png is missing
             return Container(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              child:
-                  const Center(child: Icon(Icons.error, color: Colors.red)),
+              child: Center(child: Icon(Icons.handyman, size: size * 0.6)),
             );
           },
         ),
