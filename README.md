@@ -14,10 +14,7 @@ Your pocket toolbox for engine building and tuning.
 Gearhead Wizard is a comprehensive mobile toolkit designed for car enthusiasts, mechanics, and engine builders. It replaces guesswork and scattered notes with a suite of precise calculators and measurement logs right on your phone. Whether you're planning a turbo build, calculating gear ratios, or meticulously logging engine component specs, Gearhead Wizard provides the tools you need in a clean, easy-to-use interface.
 
 <p align="center">
-<img src="https://www.google.com/search?q=https://i.imgur.com/your_screenshot_url.png" alt="App Screenshot" width="300"/>
-
-<em>(Replace this with a screenshot of your app!)</em>
-
+<img src="assets/screenshot.png"" alt="App Screenshot" width="300"/>
 </p>
 
 ✨ Features
