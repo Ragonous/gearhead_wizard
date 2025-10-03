@@ -6,7 +6,6 @@ import 'pages/crankshaft_page.dart';
 import 'pages/engine_page.dart';
 import 'pages/connecting_rod_page.dart';
 import 'pages/piston_page.dart';
-import 'widgets/ui_helpers.dart';
 
 void main() => runApp(const GearheadWizardApp());
 
@@ -19,10 +18,11 @@ class GearheadWizardApp extends StatelessWidget {
       title: 'Gearhead Wizard',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF3A4F41),
-          brightness: Brightness.light,
-          primary: const Color(0xFF3A4F41),
-          secondary: const Color(0xFFF39C12),
+          seedColor: const Color(0xFF2E4035),
+          primary: const Color(0xFF2E4035), // Dark Olive Green
+          secondary: const Color(0xFFD97706), // Orange accent
+          surface: const Color(0xFFF9FAFB), // Light gray background
+          onSurface: const Color(0xFF1F2937), // Dark text
         ),
         useMaterial3: true,
         inputDecorationTheme: const InputDecorationTheme(
@@ -43,25 +43,20 @@ class RootScaffold extends StatefulWidget {
 class _RootScaffoldState extends State<RootScaffold> {
   int _index = 0;
 
-  // This is the function that changes the tab
-  void _navigateToTab(int index) {
-    if (index >= 0 && index < _pages.length) {
-      setState(() {
-        _index = index;
-      });
-    }
+  void _onNavigate(int index) {
+    setState(() {
+      _index = index;
+    });
   }
 
-  // Use late initialization to pass the navigation callback to the HomePage
+  // The list of pages is now built using the onNavigate callback
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
-    // Define the pages list here instead of directly in the build method
     _pages = [
-      // FIX: Pass the _navigateToTab function to the HomePage constructor
-      HomePage(onNavigate: _navigateToTab),
+      HomePage(onNavigate: _onNavigate), // Pass the callback here
       const TurboCalculatorPage(),
       const GearRatioCalculatorPage(),
       const CrankshaftPage(),
@@ -81,6 +76,17 @@ class _RootScaffoldState extends State<RootScaffold> {
     'Piston'
   ];
 
+  // List of icon asset paths
+  static const List<String> _iconAssets = [
+    'assets/icons/home_icon.png',
+    'assets/icons/turbo_icon.png',
+    'assets/icons/gears_icon.png',
+    'assets/icons/crankshaft_icon.png',
+    'assets/icons/engine_icon.png',
+    'assets/icons/rod_icon.png',
+    'assets/icons/piston_icon.png',
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -94,42 +100,64 @@ class _RootScaffoldState extends State<RootScaffold> {
               showAboutDialog(
                 context: context,
                 applicationName: 'Gearhead Wizard',
-                applicationVersion: '0.1.0',
+                applicationVersion: '1.0.0',
                 applicationIcon: const AppIcon(size: 48),
                 children: const [
                   SizedBox(height: 8),
                   Text(
-                      'A growing toolkit for gearheads: boost, gearing, and more.'),
+                      'A growing toolkit for engine building, boost, gearing, and more.'),
                 ],
               );
             },
           )
         ],
       ),
-      // Use IndexedStack to keep the state of each page alive when switching tabs
-      body: IndexedStack(
-        index: _index,
-        children: _pages,
-      ),
+      body: _pages[_index],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.home_outlined), label: 'Home'),
-          NavigationDestination(
-              icon: Icon(Icons.bolt_outlined), label: 'Turbo'),
-          NavigationDestination(
-              icon: Icon(Icons.settings_outlined), label: 'Gears'),
-          NavigationDestination(
-              icon: Icon(Icons.build_outlined), label: 'Crank'),
-          NavigationDestination(
-              icon: Icon(Icons.precision_manufacturing_outlined),
-              label: 'Engine'),
-          NavigationDestination(icon: Icon(Icons.link_outlined), label: 'Rod'),
-          NavigationDestination(
-              icon: Icon(Icons.album_outlined), label: 'Piston'),
-        ],
+        // Use a map to generate the destinations
+        destinations: _titles.asMap().entries.map((entry) {
+          int idx = entry.key;
+          String title = entry.value;
+
+          // For the home tab, we keep the label. For others, just the icon.
+          return NavigationDestination(
+            // UPDATED: Increased icon size from 24 (default) to 30
+            icon: ImageIcon(AssetImage(_iconAssets[idx]), size: 30),
+            label: title == 'Home'
+                ? 'Home'
+                : title.split(' ').first, // Use first word for label
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// Re-usable AppIcon widget from ui_helpers.dart (can be kept here or moved)
+class AppIcon extends StatelessWidget {
+  final double size;
+  const AppIcon({super.key, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size / 6),
+      child: SizedBox(
+        height: size,
+        width: size,
+        child: Image.asset(
+          'assets/logo.png',
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child:
+                  const Center(child: Icon(Icons.error, color: Colors.red)),
+            );
+          },
+        ),
       ),
     );
   }

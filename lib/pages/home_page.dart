@@ -1,58 +1,58 @@
 import 'package:flutter/material.dart';
-import '../widgets/ui_helpers.dart';
+// ADDED: This line tells the home page where to find the AppIcon widget.
+import 'package:gearhead_wizard/main.dart';
 
-// Data class for our tools
+// Data class for our tools, using an asset path for the icon
 class ToolInfo {
   final String title;
   final String subtitle;
-  final IconData icon;
+  final String iconAsset;
   final int index;
 
   const ToolInfo({
     required this.title,
     required this.subtitle,
-    required this.icon,
+    required this.iconAsset,
     required this.index,
   });
 }
 
 class HomePage extends StatelessWidget {
-  // Callback to navigate to a different tab
   final Function(int) onNavigate;
 
   const HomePage({super.key, required this.onNavigate});
 
-  // List of all available tools
+  // List of all available tools with their icon asset paths
   static final List<ToolInfo> _tools = [
-    ToolInfo(
+    const ToolInfo(
         title: 'Turbo',
         subtitle: 'PR & est. HP',
-        icon: Icons.bolt_outlined,
+        iconAsset: 'assets/icons/turbo_icon.png',
         index: 1),
-    ToolInfo(
+    const ToolInfo(
         title: 'Gears',
         subtitle: 'RPM ⇆ MPH',
-        icon: Icons.settings_outlined,
+        iconAsset: 'assets/icons/gears_icon.png',
         index: 2),
-    ToolInfo(
+    const ToolInfo(
         title: 'Crankshaft',
         subtitle: 'Journal specs',
-        icon: Icons.build_outlined,
+        iconAsset: 'assets/icons/crankshaft_icon.png',
         index: 3),
-    ToolInfo(
+    const ToolInfo(
         title: 'Engine',
         subtitle: 'Bore specs',
-        icon: Icons.precision_manufacturing_outlined,
+        iconAsset: 'assets/icons/engine_icon.png',
         index: 4),
-    ToolInfo(
+    const ToolInfo(
         title: 'Con. Rod',
         subtitle: 'Bore specs',
-        icon: Icons.link_outlined,
+        iconAsset: 'assets/icons/rod_icon.png',
         index: 5),
-    ToolInfo(
+    const ToolInfo(
         title: 'Piston',
         subtitle: 'Diameter specs',
-        icon: Icons.album_outlined,
+        iconAsset: 'assets/icons/piston_icon.png',
         index: 6),
   ];
 
@@ -65,6 +65,7 @@ class HomePage extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
+          // This will now work correctly because of the new import.
           const AppIcon(size: 120),
           const SizedBox(height: 16),
           Text(
@@ -81,34 +82,27 @@ class HomePage extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-
-          // New Grid layout for all the tools
           GridView.builder(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2, // Two columns
+              crossAxisCount: 2,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              // FIX: Adjusted aspect ratio to give cards more height
               childAspectRatio: 1.4,
             ),
             itemCount: _tools.length,
-            shrinkWrap: true, // Important for GridView in a Column
-            physics:
-                const NeverScrollableScrollPhysics(), // Disable GridView's own scrolling
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
             itemBuilder: (context, index) {
               final tool = _tools[index];
               return _ToolActionCard(
-                icon: tool.icon,
+                iconAsset: tool.iconAsset,
                 title: tool.title,
                 subtitle: tool.subtitle,
                 onTap: () => onNavigate(tool.index),
               );
             },
           ),
-
           const SizedBox(height: 24),
-
-          // Updated "What’s inside" list
           Card(
             elevation: 0,
             color: colorScheme.surfaceContainerLowest,
@@ -143,15 +137,15 @@ class HomePage extends StatelessWidget {
   }
 }
 
-// A more compact card for the GridView
+// Card widget for the tool grid on the home page
 class _ToolActionCard extends StatelessWidget {
-  final IconData icon;
+  final String iconAsset;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
 
   const _ToolActionCard({
-    required this.icon,
+    required this.iconAsset,
     required this.title,
     required this.subtitle,
     required this.onTap,
@@ -170,7 +164,7 @@ class _ToolActionCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 28, color: cs.primary),
+              ImageIcon(AssetImage(iconAsset), size: 28, color: cs.primary),
               const SizedBox(height: 8),
               Text(title,
                   style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -186,6 +180,7 @@ class _ToolActionCard extends StatelessWidget {
   }
 }
 
+// List line widget for the "What's inside" card
 class _ListLine extends StatelessWidget {
   final IconData icon;
   final String text;
