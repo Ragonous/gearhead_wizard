@@ -18,7 +18,12 @@ class GearheadWizardApp extends StatelessWidget {
     return MaterialApp(
       title: 'Gearhead Wizard',
       theme: ThemeData(
-        colorSchemeSeed: Colors.teal,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF3A4F41),
+          brightness: Brightness.light,
+          primary: const Color(0xFF3A4F41),
+          secondary: const Color(0xFFF39C12),
+        ),
         useMaterial3: true,
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(),
@@ -38,15 +43,33 @@ class RootScaffold extends StatefulWidget {
 class _RootScaffoldState extends State<RootScaffold> {
   int _index = 0;
 
-  final _pages = const [
-    HomePage(),
-    TurboCalculatorPage(),
-    GearRatioCalculatorPage(),
-    CrankshaftPage(),
-    EnginePage(),
-    ConnectingRodPage(),
-    PistonPage(),
-  ];
+  // This is the function that changes the tab
+  void _navigateToTab(int index) {
+    if (index >= 0 && index < _pages.length) {
+      setState(() {
+        _index = index;
+      });
+    }
+  }
+
+  // Use late initialization to pass the navigation callback to the HomePage
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    // Define the pages list here instead of directly in the build method
+    _pages = [
+      // FIX: Pass the _navigateToTab function to the HomePage constructor
+      HomePage(onNavigate: _navigateToTab),
+      const TurboCalculatorPage(),
+      const GearRatioCalculatorPage(),
+      const CrankshaftPage(),
+      const EnginePage(),
+      const ConnectingRodPage(),
+      const PistonPage(),
+    ];
+  }
 
   final _titles = const [
     'Home',
@@ -83,7 +106,11 @@ class _RootScaffoldState extends State<RootScaffold> {
           )
         ],
       ),
-      body: _pages[_index],
+      // Use IndexedStack to keep the state of each page alive when switching tabs
+      body: IndexedStack(
+        index: _index,
+        children: _pages,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
