@@ -6,12 +6,20 @@
 // tree, read text, and verify that the values of widget properties are correct.
 
 import 'package:flutter_test/flutter_test.dart';
+
+// CORRECTED: The import path now uses the correct package name 'gearhead_wizard'
+// as defined in your pubspec.yaml file.
 import 'package:gearhead_wizard/main.dart';
 
 void main() {
-  testWidgets('app builds', (tester) async {
+  testWidgets('App smoke test', (WidgetTester tester) async {
+    // Build our app and trigger a frame.
     await tester.pumpWidget(const GearheadWizardApp());
-    // Pick any text you know is on first screen, e.g. "Home"
-    expect(find.text('Home'), findsOneWidget);
+
+    // Verify that the home page title is present.
+    expect(find.text('Gearhead Wizard'), findsOneWidget);
+
+    // Verify one of the tool cards is present.
+    expect(find.text('Turbo'), findsOneWidget);
   });
 }

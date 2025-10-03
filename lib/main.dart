@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'pages/home_page.dart';
-import 'pages/turbo_calculator_page.dart';
-import 'pages/gear_ratio_calculator_page.dart';
-import 'pages/crankshaft_page.dart';
-import 'pages/engine_page.dart';
-import 'pages/connecting_rod_page.dart';
-import 'pages/piston_page.dart';
-import 'widgets/ui_helpers.dart';
+import 'package:gearhead_wizard/pages/connecting_rod_page.dart';
+import 'package:gearhead_wizard/pages/crankshaft_page.dart';
+import 'package:gearhead_wizard/pages/engine_page.dart';
+import 'package:gearhead_wizard/pages/gear_ratio_calculator_page.dart';
+import 'package:gearhead_wizard/pages/home_page.dart';
+import 'package:gearhead_wizard/pages/piston_page.dart';
+import 'package:gearhead_wizard/pages/turbo_calculator_page.dart';
 
 void main() => runApp(const GearheadWizardApp());
 
@@ -19,12 +18,19 @@ class GearheadWizardApp extends StatelessWidget {
       title: 'Gearhead Wizard',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF3A4F41),
-          brightness: Brightness.light,
+          seedColor: const Color(0xFF3A4F41), // Dark Olive Green
           primary: const Color(0xFF3A4F41),
-          secondary: const Color(0xFFF39C12),
+          secondary: const Color(0xFFD98D30), // Orange accent
+          brightness: Brightness.light,
         ),
         useMaterial3: true,
+        // UPDATED: Added NavigationBarTheme to control the look of the bottom bar
+        navigationBarTheme: NavigationBarThemeData(
+          // Adjust the label text style to prevent wrapping
+          labelTextStyle: MaterialStateProperty.all(
+            const TextStyle(fontSize: 11.0, fontWeight: FontWeight.w500),
+          ),
+        ),
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(),
         ),
@@ -43,25 +49,20 @@ class RootScaffold extends StatefulWidget {
 class _RootScaffoldState extends State<RootScaffold> {
   int _index = 0;
 
-  // This is the function that changes the tab
+  // Callback function to allow HomePage to change the tab
   void _navigateToTab(int index) {
-    if (index >= 0 && index < _pages.length) {
-      setState(() {
-        _index = index;
-      });
-    }
+    setState(() {
+      _index = index;
+    });
   }
 
-  // Use late initialization to pass the navigation callback to the HomePage
   late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
-    // Define the pages list here instead of directly in the build method
     _pages = [
-      // FIX: Pass the _navigateToTab function to the HomePage constructor
-      HomePage(onNavigate: _navigateToTab),
+      HomePage(onNavigate: _navigateToTab), // Pass the callback here
       const TurboCalculatorPage(),
       const GearRatioCalculatorPage(),
       const CrankshaftPage(),
@@ -81,6 +82,16 @@ class _RootScaffoldState extends State<RootScaffold> {
     'Piston'
   ];
 
+  final _icons = const [
+    'assets/icons/home_icon.png',
+    'assets/icons/turbo_icon.png',
+    'assets/icons/gears_icon.png',
+    'assets/icons/crankshaft_icon.png',
+    'assets/icons/engine_icon.png',
+    'assets/icons/rod_icon.png',
+    'assets/icons/piston_icon.png',
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -94,42 +105,56 @@ class _RootScaffoldState extends State<RootScaffold> {
               showAboutDialog(
                 context: context,
                 applicationName: 'Gearhead Wizard',
-                applicationVersion: '0.1.0',
+                applicationVersion: '1.0.0',
                 applicationIcon: const AppIcon(size: 48),
                 children: const [
                   SizedBox(height: 8),
                   Text(
-                      'A growing toolkit for gearheads: boost, gearing, and more.'),
+                      'A growing toolkit for engine building, boost, gearing, and more.'),
                 ],
               );
             },
           )
         ],
       ),
-      // Use IndexedStack to keep the state of each page alive when switching tabs
-      body: IndexedStack(
-        index: _index,
-        children: _pages,
-      ),
+      body: _pages[_index],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.home_outlined), label: 'Home'),
-          NavigationDestination(
-              icon: Icon(Icons.bolt_outlined), label: 'Turbo'),
-          NavigationDestination(
-              icon: Icon(Icons.settings_outlined), label: 'Gears'),
-          NavigationDestination(
-              icon: Icon(Icons.build_outlined), label: 'Crank'),
-          NavigationDestination(
-              icon: Icon(Icons.precision_manufacturing_outlined),
-              label: 'Engine'),
-          NavigationDestination(icon: Icon(Icons.link_outlined), label: 'Rod'),
-          NavigationDestination(
-              icon: Icon(Icons.album_outlined), label: 'Piston'),
-        ],
+        destinations: List.generate(_titles.length, (i) {
+          return NavigationDestination(
+            icon: ImageIcon(AssetImage(_icons[i]), size: 28),
+            label: _titles[i] == 'Connecting Rod' ? 'Con. Rod' : _titles[i],
+          );
+        }),
+      ),
+    );
+  }
+}
+
+// AppIcon widget is now defined here to be accessible by the About dialog.
+class AppIcon extends StatelessWidget {
+  final double size;
+  const AppIcon({super.key, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size / 6),
+      child: SizedBox(
+        height: size,
+        width: size,
+        child: Image.asset(
+          'assets/logo.png',
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            // Fallback if assets/logo.png is missing
+            return Container(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: Center(child: Icon(Icons.handyman, size: size * 0.6)),
+            );
+          },
+        ),
       ),
     );
   }
