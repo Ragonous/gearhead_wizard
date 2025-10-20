@@ -3,7 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:gearhead_wizard/providers/turbo_provider.dart';
 import 'package:gearhead_wizard/providers/piston_provider.dart';
 import 'package:gearhead_wizard/providers/connecting_rod_provider.dart';
-import 'package:gearhead_wizard/providers/crankshaft_provider.dart'; // 1. Import new provider
+import 'package:gearhead_wizard/providers/crankshaft_provider.dart';
+import 'package:gearhead_wizard/providers/engine_provider.dart';
 
 // Import all your pages
 import 'package:gearhead_wizard/pages/connecting_rod_page.dart';
@@ -27,9 +28,11 @@ void main() async {
   final connectingRodProvider = ConnectingRodProvider();
   await connectingRodProvider.loadData();
 
-  // 2. Create and load new provider
   final crankshaftProvider = CrankshaftProvider();
   await crankshaftProvider.loadData();
+
+  final engineProvider = EngineProvider();
+  await engineProvider.loadData();
 
   runApp(
     MultiProvider(
@@ -43,9 +46,11 @@ void main() async {
         ChangeNotifierProvider(
           create: (context) => connectingRodProvider,
         ),
-        // 3. Add new provider to the list
         ChangeNotifierProvider(
           create: (context) => crankshaftProvider,
+        ),
+        ChangeNotifierProvider(
+          create: (context) => engineProvider,
         ),
       ],
       child: const GearheadWizardApp(),
@@ -125,15 +130,17 @@ class _RootScaffoldState extends State<RootScaffold> {
     'Piston'
   ];
 
+  // --- THIS LIST IS CORRECTED ---
   final _icons = const [
     'assets/icons/home_icon.png',
     'assets/icons/turbo_icon.png',
     'assets/icons/gears_icon.png',
     'assets/icons/crankshaft_icon.png',
     'assets/icons/engine_icon.png',
-    'assets/icons/rod_icon.png',
-    'assets/icons/piston_icon.png',
+    'assets/icons/rod_icon.png',    // Corrected path
+    'assets/icons/piston_icon.png', // Corrected path
   ];
+  // --- END OF CORRECTION ---
 
   @override
   Widget build(BuildContext context) {

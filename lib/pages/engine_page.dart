@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:gearhead_wizard/providers/engine_provider.dart';
+import 'package:provider/provider.dart';
 import '../widgets/ui_helpers.dart';
 
 class EnginePage extends StatefulWidget {
@@ -8,43 +10,49 @@ class EnginePage extends StatefulWidget {
 }
 
 class _EnginePageState extends State<EnginePage> {
-  // Counts
-  int _numMainBores = 5;
-  int _numCylinders = 8;
-
-  final _numMainBoresCtrl = TextEditingController(text: '5');
-  final _numCylindersCtrl = TextEditingController(text: '8');
-
-  // Cross-section & limits
-  bool _crossSections = false;
-  bool _limitsEnabled = false;
-
-  // Limits: mains and cylinders separate
+  // --- LOCAL UI CONTROLLERS ---
+  final _numMainBoresCtrl = TextEditingController();
+  final _numCylindersCtrl = TextEditingController();
   final _mainMinCtrl = TextEditingController();
   final _mainMaxCtrl = TextEditingController();
   final _cylMinCtrl = TextEditingController();
   final _cylMaxCtrl = TextEditingController();
 
-  // Measurements (A/B lists for cross-sections)
   final List<TextEditingController> _mainA = [];
   final List<TextEditingController> _mainB = [];
   final List<TextEditingController> _cylA = [];
   final List<TextEditingController> _cylB = [];
-
-  // Roundness results (when cross-sections enabled)
-  final List<double?> _mainRoundness = [];
-  final List<double?> _cylRoundness = [];
-
-  // Limit checks
-  final List<bool?> _mainWithinA = [];
-  final List<bool?> _mainWithinB = [];
-  final List<bool?> _cylWithinA = [];
-  final List<bool?> _cylWithinB = [];
+  // --- END OF CONTROLLERS ---
 
   @override
   void initState() {
     super.initState();
-    _resizeLists();
+    final provider = context.read<EngineProvider>();
+
+    // Set initial text for simple controllers
+    _numMainBoresCtrl.text = provider.numMainBores.toString();
+    _numCylindersCtrl.text = provider.numCylinders.toString();
+    _mainMinCtrl.text = provider.mainMin;
+    _mainMaxCtrl.text = provider.mainMax;
+    _cylMinCtrl.text = provider.cylMin;
+    _cylMaxCtrl.text = provider.cylMax;
+
+    // Add listeners to update provider when text changes
+    _mainMinCtrl.addListener(() {
+      context.read<EngineProvider>().updateMainMin(_mainMinCtrl.text);
+    });
+    _mainMaxCtrl.addListener(() {
+      context.read<EngineProvider>().updateMainMax(_mainMaxCtrl.text);
+    });
+    _cylMinCtrl.addListener(() {
+      context.read<EngineProvider>().updateCylMin(_cylMinCtrl.text);
+    });
+    _cylMaxCtrl.addListener(() {
+      context.read<EngineProvider>().updateCylMax(_cylMaxCtrl.text);
+    });
+
+    // Initial fill of controller lists
+    _syncControllerLists(provider);
   }
 
   @override
@@ -55,186 +63,86 @@ class _EnginePageState extends State<EnginePage> {
     _mainMaxCtrl.dispose();
     _cylMinCtrl.dispose();
     _cylMaxCtrl.dispose();
-    for (final c in _mainA) {
-      c.dispose();
-    }
-    for (final c in _mainB) {
-      c.dispose();
-    }
-    for (final c in _cylA) {
-      c.dispose();
-    }
-    for (final c in _cylB) {
-      c.dispose();
-    }
+
+    for (final c in _mainA) c.dispose();
+    for (final c in _mainB) c.dispose();
+    for (final c in _cylA) c.dispose();
+    for (final c in _cylB) c.dispose();
+    
     super.dispose();
   }
-
-  // ---------- sizing helpers ----------
-  void _resizeLists() {
-    _numMainBores = _numMainBores.clamp(1, 10);
-    _numCylinders = _numCylinders.clamp(1, 16);
-
-    void grow(List<TextEditingController> list, int to) {
-      while (list.length < to) {
-        list.add(TextEditingController());
+  
+  // Helper to sync our 4 UI lists with the provider's data
+  void _syncControllerLists(EngineProvider provider) {
+    // A helper function to sync one list
+    void syncList(
+      List<TextEditingController> controllers,
+      int targetSize,
+      String Function(int) textSelector,
+      void Function(int, String) updater,
+    ) {
+      // --- GROW ---
+      while (controllers.length < targetSize) {
+        final index = controllers.length;
+        final text = textSelector(index);
+        final ctrl = TextEditingController(text: text);
+        
+        ctrl.addListener(() {
+          updater(index, ctrl.text);
+        });
+        controllers.add(ctrl);
+      }
+      
+      // --- SHRINK ---
+      while (controllers.length > targetSize) {
+        final ctrl = controllers.removeLast();
+        WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.dispose());
       }
     }
 
-    void shrink(List<TextEditingController> list, int to) {
-      while (list.length > to) {
-        list.removeLast().dispose();
-      }
-    }
-
-    grow(_mainA, _numMainBores);
-    grow(_mainB, _numMainBores);
-    grow(_cylA, _numCylinders);
-    grow(_cylB, _numCylinders);
-    shrink(_mainA, _numMainBores);
-    shrink(_mainB, _numMainBores);
-    shrink(_cylA, _numCylinders);
-    shrink(_cylB, _numCylinders);
-
-    while (_mainRoundness.length < _numMainBores) {
-      _mainRoundness.add(null);
-    }
-    while (_mainRoundness.length > _numMainBores) {
-      _mainRoundness.removeLast();
-    }
-    while (_cylRoundness.length < _numCylinders) {
-      _cylRoundness.add(null);
-    }
-    while (_cylRoundness.length > _numCylinders) {
-      _cylRoundness.removeLast();
-    }
-
-    while (_mainWithinA.length < _numMainBores) {
-      _mainWithinA.add(null);
-    }
-    while (_mainWithinA.length > _numMainBores) {
-      _mainWithinA.removeLast();
-    }
-    while (_mainWithinB.length < _numMainBores) {
-      _mainWithinB.add(null);
-    }
-    while (_mainWithinB.length > _numMainBores) {
-      _mainWithinB.removeLast();
-    }
-
-    while (_cylWithinA.length < _numCylinders) {
-      _cylWithinA.add(null);
-    }
-    while (_cylWithinA.length > _numCylinders) {
-      _cylWithinA.removeLast();
-    }
-    while (_cylWithinB.length < _numCylinders) {
-      _cylWithinB.add(null);
-    }
-    while (_cylWithinB.length > _numCylinders) {
-      _cylWithinB.removeLast();
-    }
-  }
-
-  void _setMains(int n) {
-    setState(() {
-      _numMainBores = n.clamp(1, 10);
-      _numMainBoresCtrl.text = '$_numMainBores';
-      _resizeLists();
-      _clearResults();
-    });
-  }
-
-  void _setCyls(int n) {
-    setState(() {
-      _numCylinders = n.clamp(1, 16);
-      _numCylindersCtrl.text = '$_numCylinders';
-      _resizeLists();
-      _clearResults();
-    });
-  }
-
-  void _clearResults() {
-    setState(() {
-      for (int i = 0; i < _mainRoundness.length; i++) {
-        _mainRoundness[i] = null;
-      }
-      for (int i = 0; i < _cylRoundness.length; i++) {
-        _cylRoundness[i] = null;
-      }
-      for (int i = 0; i < _mainWithinA.length; i++) {
-        _mainWithinA[i] = null;
-      }
-      for (int i = 0; i < _mainWithinB.length; i++) {
-        _mainWithinB[i] = null;
-      }
-      for (int i = 0; i < _cylWithinA.length; i++) {
-        _cylWithinA[i] = null;
-      }
-      for (int i = 0; i < _cylWithinB.length; i++) {
-        _cylWithinB[i] = null;
-      }
-    });
-  }
-
-  double? _p(TextEditingController c) => double.tryParse(c.text.trim());
-
-  bool? _within(double? v, double? min, double? max) {
-    if (v == null || min == null || max == null) return null;
-    if (min > max) return null;
-    return v >= min && v <= max;
-  }
-
-  void _calculate() {
-    _clearResults();
-
-    final mainMin = _limitsEnabled ? _p(_mainMinCtrl) : null;
-    final mainMax = _limitsEnabled ? _p(_mainMaxCtrl) : null;
-    final cylMin = _limitsEnabled ? _p(_cylMinCtrl) : null;
-    final cylMax = _limitsEnabled ? _p(_cylMaxCtrl) : null;
-
-    setState(() {
-      if (_crossSections) {
-        for (int i = 0; i < _numMainBores; i++) {
-          final a = _p(_mainA[i]);
-          final b = _p(_mainB[i]);
-          _mainRoundness[i] = (a != null && b != null) ? (a - b).abs() : null;
-        }
-        for (int i = 0; i < _numCylinders; i++) {
-          final a = _p(_cylA[i]);
-          final b = _p(_cylB[i]);
-          _cylRoundness[i] = (a != null && b != null) ? (a - b).abs() : null;
-        }
-      }
-
-      if (_limitsEnabled) {
-        for (int i = 0; i < _numMainBores; i++) {
-          final a = _p(_mainA[i]);
-          _mainWithinA[i] = _within(a, mainMin, mainMax);
-          if (_crossSections) {
-            final b = _p(_mainB[i]);
-            _mainWithinB[i] = _within(b, mainMin, mainMax);
-          } else {
-            _mainWithinB[i] = null;
-          }
-        }
-        for (int i = 0; i < _numCylinders; i++) {
-          final a = _p(_cylA[i]);
-          _cylWithinA[i] = _within(a, cylMin, cylMax);
-          if (_crossSections) {
-            final b = _p(_cylB[i]);
-            _cylWithinB[i] = _within(b, cylMin, cylMax);
-          } else {
-            _cylWithinB[i] = null;
-          }
-        }
-      }
-    });
+    final providerRead = context.read<EngineProvider>();
+    // Sync Main lists
+    syncList(
+      _mainA,
+      provider.numMainBores,
+      (i) => provider.mainMeasurements[i].a,
+      (i, v) => providerRead.updateMainA(i, v),
+    );
+    syncList(
+      _mainB,
+      provider.numMainBores,
+      (i) => provider.mainMeasurements[i].b,
+      (i, v) => providerRead.updateMainB(i, v),
+    );
+    
+    // Sync Cylinder lists
+    syncList(
+      _cylA,
+      provider.numCylinders,
+      (i) => provider.cylMeasurements[i].a,
+      (i, v) => providerRead.updateCylA(i, v),
+    );
+    syncList(
+      _cylB,
+      provider.numCylinders,
+      (i) => provider.cylMeasurements[i].b,
+      (i, v) => providerRead.updateCylB(i, v),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    _resizeLists(); // keep arrays sized safely
+    final provider = context.watch<EngineProvider>();
+
+    _syncControllerLists(provider);
+    
+    if (_numMainBoresCtrl.text != provider.numMainBores.toString()) {
+      _numMainBoresCtrl.text = provider.numMainBores.toString();
+    }
+    if (_numCylindersCtrl.text != provider.numCylinders.toString()) {
+      _numCylindersCtrl.text = provider.numCylinders.toString();
+    }
+
     final cs = Theme.of(context).colorScheme;
 
     return ListView(
@@ -262,19 +170,20 @@ class _EnginePageState extends State<EnginePage> {
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
-                      labelText: 'Main Housing Bores',
+                      labelText: 'Main Bores', // RENAMED
                       helperText: '1–10',
                     ),
-                    onChanged: (v) =>
-                        _setMains(int.tryParse(v) ?? _numMainBores),
+                    onChanged: (v) => provider.setNumMainBores(
+                      int.tryParse(v) ?? provider.numMainBores
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                    onPressed: () => _setMains(_numMainBores - 1),
+                    onPressed: () => provider.setNumMainBores(provider.numMainBores - 1),
                     icon: const Icon(Icons.remove_circle_outline)),
                 IconButton(
-                    onPressed: () => _setMains(_numMainBores + 1),
+                    onPressed: () => provider.setNumMainBores(provider.numMainBores + 1),
                     icon: const Icon(Icons.add_circle_outline)),
               ]),
               const SizedBox(height: 12),
@@ -288,16 +197,17 @@ class _EnginePageState extends State<EnginePage> {
                       labelText: 'Cylinders',
                       helperText: '1–16',
                     ),
-                    onChanged: (v) =>
-                        _setCyls(int.tryParse(v) ?? _numCylinders),
+                    onChanged: (v) => provider.setNumCylinders(
+                      int.tryParse(v) ?? provider.numCylinders
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                    onPressed: () => _setCyls(_numCylinders - 1),
+                    onPressed: () => provider.setNumCylinders(provider.numCylinders - 1),
                     icon: const Icon(Icons.remove_circle_outline)),
                 IconButton(
-                    onPressed: () => _setCyls(_numCylinders + 1),
+                    onPressed: () => provider.setNumCylinders(provider.numCylinders + 1),
                     icon: const Icon(Icons.add_circle_outline)),
               ]),
 
@@ -308,21 +218,15 @@ class _EnginePageState extends State<EnginePage> {
                 title: const Text('Cross-section (roundness) check'),
                 subtitle:
                     const Text('Record A/B ~90° apart and compute |A − B|'),
-                value: _crossSections,
-                onChanged: (v) => setState(() {
-                  _crossSections = v;
-                  _clearResults();
-                }),
+                value: provider.crossSections,
+                onChanged: (v) => provider.setCrossSections(v),
               ),
               SwitchListTile(
                 title: const Text('Check against manufacturer limits'),
-                value: _limitsEnabled,
-                onChanged: (v) => setState(() {
-                  _limitsEnabled = v;
-                  _clearResults();
-                }),
+                value: provider.limitsEnabled,
+                onChanged: (v) => provider.setLimitsEnabled(v),
               ),
-              if (_limitsEnabled) ...[
+              if (provider.limitsEnabled) ...[
                 Row(children: [
                   Expanded(child: NumField(controller: _mainMinCtrl, label: 'Main Min')),
                   const SizedBox(width: 8),
@@ -342,13 +246,13 @@ class _EnginePageState extends State<EnginePage> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: _calculate,
+                  onPressed: () => provider.calculate(),
                   icon: const Icon(Icons.calculate),
-                  label: Text(_crossSections
-                      ? (_limitsEnabled
+                  label: Text(provider.crossSections
+                      ? (provider.limitsEnabled
                           ? 'Calculate Roundness & Limits'
                           : 'Calculate Roundness')
-                      : (_limitsEnabled ? 'Calculate Limits' : 'Calculate')),
+                      : (provider.limitsEnabled ? 'Calculate Limits' : 'Calculate')),
                 ),
               ),
             ]),
@@ -363,26 +267,28 @@ class _EnginePageState extends State<EnginePage> {
             padding: const EdgeInsets.all(16),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Main Housing Bores',
+              const Text('Main Bores', // RENAMED
                   style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
               Column(
-                children: List.generate(_numMainBores, (i) {
+                  children: List.generate(provider.numMainBores, (i) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _crossSections
+                    child: provider.crossSections
                         ? TwoFieldRow(
+                            key: ValueKey('main-$i'),
                             label: 'Main ${i + 1}',
                             aCtrl: _mainA[i],
                             bCtrl: _mainB[i],
-                            roundness: _mainRoundness[i],
-                            withinA: _mainWithinA[i],
-                            withinB: _mainWithinB[i],
+                            roundness: provider.mainRoundness[i],
+                            withinA: provider.mainWithinA[i],
+                            withinB: provider.mainWithinB[i],
                           )
                         : SingleFieldRow(
+                            key: ValueKey('main-$i'),
                             label: 'Main ${i + 1}',
                             controller: _mainA[i],
-                            within: _mainWithinA[i],
+                            within: provider.mainWithinA[i],
                           ),
                   );
                 }),
@@ -403,22 +309,24 @@ class _EnginePageState extends State<EnginePage> {
                   style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
               Column(
-                children: List.generate(_numCylinders, (i) {
+                  children: List.generate(provider.numCylinders, (i) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _crossSections
+                    child: provider.crossSections
                         ? TwoFieldRow(
+                            key: ValueKey('cyl-$i'),
                             label: 'Cylinder ${i + 1}',
                             aCtrl: _cylA[i],
                             bCtrl: _cylB[i],
-                            roundness: _cylRoundness[i],
-                            withinA: _cylWithinA[i],
-                            withinB: _cylWithinB[i],
+                            roundness: provider.cylRoundness[i],
+                            withinA: provider.cylWithinA[i],
+                            withinB: provider.cylWithinB[i],
                           )
                         : SingleFieldRow(
+                            key: ValueKey('cyl-$i'),
                             label: 'Cylinder ${i + 1}',
                             controller: _cylA[i],
-                            within: _cylWithinA[i],
+                            within: provider.cylWithinA[i],
                           ),
                   );
                 }),
