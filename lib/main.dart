@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // 1. Import Provider
+import 'package:gearhead_wizard/providers/turbo_provider.dart'; // 2. Import our new "brain"
+
+// Import all your pages
 import 'package:gearhead_wizard/pages/connecting_rod_page.dart';
 import 'package:gearhead_wizard/pages/crankshaft_page.dart';
 import 'package:gearhead_wizard/pages/engine_page.dart';
@@ -7,7 +11,30 @@ import 'package:gearhead_wizard/pages/home_page.dart';
 import 'package:gearhead_wizard/pages/piston_page.dart';
 import 'package:gearhead_wizard/pages/turbo_calculator_page.dart';
 
-void main() => runApp(const GearheadWizardApp());
+// 3. THIS IS THE MODIFIED main() FUNCTION
+void main() async {
+  // This line is required to run code *before* the app starts
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Create and load our "brain"
+  final turboProvider = TurboProvider();
+  await turboProvider.loadData(); // Load data from the "notebook"
+
+  runApp(
+    // Use MultiProvider to prepare for more "brains" later
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) => turboProvider,
+        ),
+        // You can add more providers here later
+      ],
+      child: const GearheadWizardApp(), // Your existing app
+    ),
+  );
+}
+
+// THE REST OF YOUR FILE IS UNCHANGED
 
 class GearheadWizardApp extends StatelessWidget {
   const GearheadWizardApp({super.key});

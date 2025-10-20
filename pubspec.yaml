@@ -11,6 +11,10 @@ dependencies:
     sdk: flutter
   flutter_native_splash: ^2.4.0
 
+  #Added these two new dependencies for state management and routing
+  provider: ^6.1.2            # This is our "whiteboard" (state management)
+  shared_preferences: ^2.2.3  # This is our "notebook" (local storage)
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
