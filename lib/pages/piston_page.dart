@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gearhead_wizard/providers/piston_provider.dart';
 import 'package:provider/provider.dart';
-import '../widgets/ui_helpers.dart';
+import 'package:gearhead_wizard/widgets/ui_helpers.dart';
 
 class PistonPage extends StatefulWidget {
   const PistonPage({super.key});
@@ -10,28 +10,23 @@ class PistonPage extends StatefulWidget {
 }
 
 class _PistonPageState extends State<PistonPage> {
-  // --- LOCAL UI CONTROLLERS ---
   final _numCtrl = TextEditingController();
   final _minCtrl = TextEditingController();
   final _maxCtrl = TextEditingController();
 
   final List<TextEditingController> _pistonA = [];
   final List<TextEditingController> _pistonB = [];
-  // --- END OF CONTROLLERS ---
 
   @override
   void initState() {
     super.initState();
     
-    // 1. Get the provider *without* listening
     final provider = context.read<PistonProvider>();
 
-    // 2. Set the *initial* text for the simple controllers
     _numCtrl.text = provider.numPistons.toString();
     _minCtrl.text = provider.min;
     _maxCtrl.text = provider.max;
     
-    // 3. Add listeners to update the provider when text changes
     _minCtrl.addListener(() {
       context.read<PistonProvider>().updateMin(_minCtrl.text);
     });
@@ -39,7 +34,6 @@ class _PistonPageState extends State<PistonPage> {
       context.read<PistonProvider>().updateMax(_maxCtrl.text);
     });
     
-    // 4. Do the *initial* fill of the controller lists
     _syncControllerLists(provider);
   }
 
@@ -57,19 +51,13 @@ class _PistonPageState extends State<PistonPage> {
     super.dispose();
   }
   
-  // This is our new, combined sync logic.
-  // It is called from build() and initState().
   void _syncControllerLists(PistonProvider provider) {
-    // --- GROW ---
-    // Add new controllers if provider has more pistons than we have controllers
     while (_pistonA.length < provider.numPistons) {
       final index = _pistonA.length;
       final text = provider.measurements[index].a;
       final ctrl = TextEditingController(text: text);
       
-      // Add listener to update provider when UI text changes
       ctrl.addListener(() {
-        // Use read() here, it's safer in a listener
         context.read<PistonProvider>().updateMeasurementA(index, ctrl.text);
       });
       _pistonA.add(ctrl);
@@ -84,11 +72,8 @@ class _PistonPageState extends State<PistonPage> {
       _pistonB.add(ctrl);
     }
 
-    // --- SHRINK ---
-    // Schedule disposal for *after* the build frame
     while (_pistonA.length > provider.numPistons) {
       final ctrl = _pistonA.removeLast();
-      // Dispose after build to avoid errors
       WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.dispose());
     }
     while (_pistonB.length > provider.numPistons) {
@@ -99,19 +84,10 @@ class _PistonPageState extends State<PistonPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Get the "brain" and WATCH for changes
     final provider = context.watch<PistonProvider>();
 
-    // Run our sync logic *every build*.
-    // This is now safe because:
-    // 1. "Grow" just adds to a list (safe).
-    // 2. "Shrink" schedules disposal for later (safe).
-    // This ensures our controller lists are *always* the right size
-    // *before* List.generate runs.
     _syncControllerLists(provider);
     
-    // This check is for the _numCtrl only.
-    // If the provider's count changed (e.g. invalid text), update the UI.
     if (_numCtrl.text != provider.numPistons.toString()) {
       _numCtrl.text = provider.numPistons.toString();
     }
@@ -144,9 +120,6 @@ class _PistonPageState extends State<PistonPage> {
                       helperText: '1–16',
                     ),
                     onChanged: (v) {
-                       // We just *tell* the provider.
-                       // The provider will notify, and this widget will
-                       // rebuild with the corrected value if needed.
                        provider.setNumPistons(
                          int.tryParse(v) ?? provider.numPistons
                        );
@@ -209,8 +182,6 @@ class _PistonPageState extends State<PistonPage> {
                   style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
               Column(
-                // This is now safe, as _syncControllerLists
-                // has already run.
                 children: List.generate(
                     provider.numPistons,
                     (i) => Padding(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:gearhead_wizard/providers/turbo_provider.dart';
 import 'package:gearhead_wizard/providers/piston_provider.dart';
+import 'package:gearhead_wizard/providers/connecting_rod_provider.dart';
 
 // Import all your pages
 import 'package:gearhead_wizard/pages/connecting_rod_page.dart';
@@ -21,6 +22,9 @@ void main() async {
   final pistonProvider = PistonProvider();
   await pistonProvider.loadData();
 
+  final connectingRodProvider = ConnectingRodProvider();
+  await connectingRodProvider.loadData();
+
   runApp(
     MultiProvider(
       providers: [
@@ -29,6 +33,9 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (context) => pistonProvider,
+        ),
+        ChangeNotifierProvider(
+          create: (context) => connectingRodProvider,
         ),
       ],
       child: const GearheadWizardApp(),
