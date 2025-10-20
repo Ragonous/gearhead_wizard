@@ -5,6 +5,7 @@ import 'package:gearhead_wizard/providers/piston_provider.dart';
 import 'package:gearhead_wizard/providers/connecting_rod_provider.dart';
 import 'package:gearhead_wizard/providers/crankshaft_provider.dart';
 import 'package:gearhead_wizard/providers/engine_provider.dart';
+import 'package:gearhead_wizard/providers/gear_ratio_provider.dart'; // 1. Import new provider
 
 // Import all your pages
 import 'package:gearhead_wizard/pages/connecting_rod_page.dart';
@@ -34,24 +35,20 @@ void main() async {
   final engineProvider = EngineProvider();
   await engineProvider.loadData();
 
+  // 2. Create and load new provider
+  final gearRatioProvider = GearRatioProvider();
+  await gearRatioProvider.loadData();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (context) => turboProvider,
-        ),
-        ChangeNotifierProvider(
-          create: (context) => pistonProvider,
-        ),
-        ChangeNotifierProvider(
-          create: (context) => connectingRodProvider,
-        ),
-        ChangeNotifierProvider(
-          create: (context) => crankshaftProvider,
-        ),
-        ChangeNotifierProvider(
-          create: (context) => engineProvider,
-        ),
+        ChangeNotifierProvider(create: (context) => turboProvider),
+        ChangeNotifierProvider(create: (context) => pistonProvider),
+        ChangeNotifierProvider(create: (context) => connectingRodProvider),
+        ChangeNotifierProvider(create: (context) => crankshaftProvider),
+        ChangeNotifierProvider(create: (context) => engineProvider),
+        // 3. Add new provider to the list
+        ChangeNotifierProvider(create: (context) => gearRatioProvider),
       ],
       child: const GearheadWizardApp(),
     ),
@@ -130,17 +127,15 @@ class _RootScaffoldState extends State<RootScaffold> {
     'Piston'
   ];
 
-  // --- THIS LIST IS CORRECTED ---
   final _icons = const [
     'assets/icons/home_icon.png',
     'assets/icons/turbo_icon.png',
     'assets/icons/gears_icon.png',
     'assets/icons/crankshaft_icon.png',
     'assets/icons/engine_icon.png',
-    'assets/icons/rod_icon.png',    // Corrected path
-    'assets/icons/piston_icon.png', // Corrected path
+    'assets/icons/rod_icon.png',
+    'assets/icons/piston_icon.png',
   ];
-  // --- END OF CORRECTION ---
 
   @override
   Widget build(BuildContext context) {

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:gearhead_wizard/providers/gear_ratio_provider.dart';
+import 'package:provider/provider.dart';
 import '../widgets/ui_helpers.dart';
-
-enum TransType { manual, automatic }
-
-enum DriveType { twoWD, fourWD }
 
 class GearRatioCalculatorPage extends StatefulWidget {
   const GearRatioCalculatorPage({super.key});
@@ -13,52 +11,65 @@ class GearRatioCalculatorPage extends StatefulWidget {
 }
 
 class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
-  // Tire input
-  bool _useMetricTires = false;
-  final _tireDiaCtrl = TextEditingController(text: '26.0'); // inches
-  final _tireMetricCtrl =
-      TextEditingController(text: '275/40R18'); // metric code
+  // --- LOCAL UI CONTROLLERS ---
+  final _tireDiaCtrl = TextEditingController();
+  final _tireMetricCtrl = TextEditingController();
+  final _axleRatioCtrl = TextEditingController();
+  final _numGearsCtrl = TextEditingController();
+  final List<TextEditingController> _gearCtrls = []; // Managed in sync
+  final _tcaseHighCtrl = TextEditingController();
+  final _tcaseLowCtrl = TextEditingController();
+  final _splitterRatioCtrl = TextEditingController();
+  final _mphCtrl = TextEditingController();
+  final _rpmCtrl = TextEditingController();
+  // --- END OF CONTROLLERS ---
 
-  // Driveline basics
-  final _axleRatioCtrl = TextEditingController(text: '3.73');
+  @override
+  void initState() {
+    super.initState();
+    final provider = context.read<GearRatioProvider>();
 
-  // Transmission
-  TransType _transType = TransType.manual;
-  int _numGears = 5; // 1..10
-  final _numGearsCtrl = TextEditingController(text: '5');
-  final List<TextEditingController> _gearCtrls = List.generate(
-    5,
-    (i) => TextEditingController(
-      text: switch (i) {
-        0 => '2.95',
-        1 => '1.94',
-        2 => '1.34',
-        3 => '1.00',
-        4 => '0.73',
-        _ => ''
-      },
-    ),
-  );
+    // Set initial text for simple controllers
+    _tireDiaCtrl.text = provider.tireDia;
+    _tireMetricCtrl.text = provider.tireMetric;
+    _axleRatioCtrl.text = provider.axleRatio;
+    _numGearsCtrl.text = provider.numGears.toString();
+    _tcaseHighCtrl.text = provider.tcaseHigh;
+    _tcaseLowCtrl.text = provider.tcaseLow;
+    _splitterRatioCtrl.text = provider.splitterRatio;
+    _mphCtrl.text = provider.mph;
+    _rpmCtrl.text = provider.rpm;
 
-  // Drivetrain
-  DriveType _drive = DriveType.twoWD;
-  final _tcaseHighCtrl = TextEditingController(text: '1.00');
-  final _tcaseLowCtrl = TextEditingController(text: '2.72');
-  String _range = 'High'; // High | Low
+    // Add listeners to update provider when text changes
+    _tireDiaCtrl.addListener(() {
+      context.read<GearRatioProvider>().updateTireDia(_tireDiaCtrl.text);
+    });
+    _tireMetricCtrl.addListener(() {
+      context.read<GearRatioProvider>().updateTireMetric(_tireMetricCtrl.text);
+    });
+    _axleRatioCtrl.addListener(() {
+      context.read<GearRatioProvider>().updateAxleRatio(_axleRatioCtrl.text);
+    });
+     _tcaseHighCtrl.addListener(() {
+      context.read<GearRatioProvider>().updateTcaseHigh(_tcaseHighCtrl.text);
+    });
+     _tcaseLowCtrl.addListener(() {
+      context.read<GearRatioProvider>().updateTcaseLow(_tcaseLowCtrl.text);
+    });
+    _splitterRatioCtrl.addListener(() {
+      context.read<GearRatioProvider>().updateSplitterRatio(_splitterRatioCtrl.text);
+    });
+    _mphCtrl.addListener(() {
+      context.read<GearRatioProvider>().updateMph(_mphCtrl.text);
+    });
+    _rpmCtrl.addListener(() {
+      context.read<GearRatioProvider>().updateRpm(_rpmCtrl.text);
+    });
 
-  // Splitter / GearVendors
-  bool _splitterEnabled = false;
-  final _splitterRatioCtrl =
-      TextEditingController(text: '0.78'); // overdrive example
-  bool _splitterEngaged = false;
 
-  // Calculations
-  final _mphCtrl = TextEditingController(text: '65');
-  final _rpmCtrl = TextEditingController(text: '2500');
-  int _selectedGearIndex = 3; // default to 4th
-
-  double? _rpmAtMph;
-  double? _mphAtRpm;
+    // Initial fill of gear ratio controllers
+    _syncGearControllers(provider);
+  }
 
   @override
   void dispose() {
@@ -66,9 +77,7 @@ class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
     _tireMetricCtrl.dispose();
     _axleRatioCtrl.dispose();
     _numGearsCtrl.dispose();
-    for (final c in _gearCtrls) {
-      c.dispose();
-    }
+    for (final c in _gearCtrls) c.dispose();
     _tcaseHighCtrl.dispose();
     _tcaseLowCtrl.dispose();
     _splitterRatioCtrl.dispose();
@@ -77,128 +86,71 @@ class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
     super.dispose();
   }
 
-  // --- logic helpers ---
-  double? _parse(TextEditingController c) => double.tryParse(c.text.trim());
-
-  double _getTireDiameterInches() {
-    if (!_useMetricTires) return _parse(_tireDiaCtrl) ?? 0;
-    return _parseMetricTire(_tireMetricCtrl.text.trim());
-  }
-
-  double _parseMetricTire(String s) {
-    final m =
-        RegExp(r'(\d{3})/(\d{2})R(\d{2})', caseSensitive: false).firstMatch(s);
-    if (m == null) return 0;
-    final width = double.parse(m.group(1)!); // mm
-    final aspect = double.parse(m.group(2)!); // %
-    final rimIn = double.parse(m.group(3)!); // inches
-    final sidewallMm = width * (aspect / 100.0);
-    final diameterMm = 2 * sidewallMm + rimIn * 25.4;
-    return diameterMm / 25.4;
-  }
-
-  void _setNumGears(int n) {
-    final clamped = n.clamp(1, 10);
-    if (clamped == _numGears) return;
-
-    setState(() {
-      // grow
-      while (_gearCtrls.length < clamped) {
-        _gearCtrls.add(TextEditingController());
-      }
-      // shrink
-      while (_gearCtrls.length > clamped) {
-        _gearCtrls.removeLast().dispose();
-      }
-      _numGears = clamped;
-
-      if (_selectedGearIndex >= _numGears) {
-        _selectedGearIndex = _numGears - 1;
-      }
-
-      _numGearsCtrl.text = '$_numGears';
-    });
-  }
-
-  double _effectiveFinalDrive() {
-    final axle = _parse(_axleRatioCtrl) ?? 0;
-    final tHigh = _parse(_tcaseHighCtrl) ?? 1.0;
-    final tLow = _parse(_tcaseLowCtrl) ?? 1.0;
-    final tCase =
-        (_drive == DriveType.fourWD) ? (_range == 'Low' ? tLow : tHigh) : 1.0;
-    final split = (_splitterEnabled && _splitterEngaged)
-        ? (_parse(_splitterRatioCtrl) ?? 1.0)
-        : 1.0;
-    return axle * tCase * split;
-  }
-
-  double _selectedGearRatio() {
-    final idx = _selectedGearIndex.clamp(0, _numGears - 1);
-    final g = double.tryParse(_gearCtrls[idx].text.trim());
-    return (g == null || g <= 0) ? 1.0 : g;
-  }
-
-  void _calcRpmAtMph() {
-    final d = _getTireDiameterInches();
-    final mph = _parse(_mphCtrl);
-    if (d <= 0 || mph == null || mph < 0) {
-      return _snack('Enter valid tire and MPH.');
+  // Helper to sync the gear ratio controller list
+  void _syncGearControllers(GearRatioProvider provider) {
+    // Grow
+    while (_gearCtrls.length < provider.numGears) {
+      final index = _gearCtrls.length;
+      final text = provider.gearRatios[index];
+      final ctrl = TextEditingController(text: text);
+      ctrl.addListener(() {
+        context.read<GearRatioProvider>().updateGearRatio(index, ctrl.text);
+      });
+      _gearCtrls.add(ctrl);
     }
-    final rpm = (mph * _selectedGearRatio() * _effectiveFinalDrive() * 336.0) / d;
-    setState(() => _rpmAtMph = rpm);
-  }
-
-  void _calcMphAtRpm() {
-    final d = _getTireDiameterInches();
-    final rpm = _parse(_rpmCtrl);
-    if (d <= 0 || rpm == null || rpm < 0) {
-      return _snack('Enter valid tire and RPM.');
+    // Shrink
+    while (_gearCtrls.length > provider.numGears) {
+      final ctrl = _gearCtrls.removeLast();
+      WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.dispose());
     }
-    final mph = (rpm * d) / (_selectedGearRatio() * _effectiveFinalDrive() * 336.0);
-    setState(() => _mphAtRpm = mph);
   }
 
-  void _snack(String m) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+  void _runCalcRpm(BuildContext context) {
+    final provider = context.read<GearRatioProvider>();
+    final error = provider.calcRpmAtMph();
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
 
-  // ---------- responsive helpers ----------
+  void _runCalcMph(BuildContext context) {
+    final provider = context.read<GearRatioProvider>();
+    final error = provider.calcMphAtRpm();
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  // Copied responsive helpers directly from original file
   Widget _responsiveChipRow({
     required String label,
     required List<Widget> chips,
   }) {
-    return LayoutBuilder(
+     return LayoutBuilder(
       builder: (context, constraints) {
-        final bool narrow = constraints.maxWidth < 420; // tweak as needed
+        final bool narrow = constraints.maxWidth < 420;
         if (narrow) {
-          // Stack label above; chips wrap
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: chips,
-              ),
+              Wrap(spacing: 8, runSpacing: 8, children: chips),
             ],
           );
         }
-        // Wide screens: keep row
         return Row(
-          children: [
+           children: [
             Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(width: 12),
-            ...chips
-                .map((w) => Padding(padding: const EdgeInsets.only(right: 8), child: w)),
+            ...chips.map((w) => Padding(padding: const EdgeInsets.only(right: 8), child: w)),
           ],
         );
       },
     );
   }
 
-  Widget _responsiveNumGearsRow() {
+  Widget _responsiveNumGearsRow(GearRatioProvider provider) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool narrow = constraints.maxWidth < 420;
@@ -214,18 +166,18 @@ class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
                   labelText: 'Number of Gears',
                   helperText: '1–10',
                 ),
-                onChanged: (v) => _setNumGears(int.tryParse(v) ?? _numGears),
+                onChanged: (v) => provider.setNumGears(int.tryParse(v) ?? provider.numGears),
               ),
               const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   IconButton(
-                    onPressed: () => _setNumGears(_numGears - 1),
+                    onPressed: () => provider.setNumGears(provider.numGears - 1),
                     icon: const Icon(Icons.remove_circle_outline),
                   ),
                   IconButton(
-                    onPressed: () => _setNumGears(_numGears + 1),
+                    onPressed: () => provider.setNumGears(provider.numGears + 1),
                     icon: const Icon(Icons.add_circle_outline),
                   ),
                 ],
@@ -233,7 +185,6 @@ class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
             ],
           );
         }
-        // Wide: one row
         return Row(children: [
           Expanded(
             child: TextField(
@@ -244,16 +195,16 @@ class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
                 labelText: 'Number of Gears',
                 helperText: '1–10',
               ),
-              onChanged: (v) => _setNumGears(int.tryParse(v) ?? _numGears),
+              onChanged: (v) => provider.setNumGears(int.tryParse(v) ?? provider.numGears),
             ),
           ),
           const SizedBox(width: 8),
           IconButton(
-            onPressed: () => _setNumGears(_numGears - 1),
+            onPressed: () => provider.setNumGears(provider.numGears - 1),
             icon: const Icon(Icons.remove_circle_outline),
           ),
           IconButton(
-            onPressed: () => _setNumGears(_numGears + 1),
+            onPressed: () => provider.setNumGears(provider.numGears + 1),
             icon: const Icon(Icons.add_circle_outline),
           ),
         ]);
@@ -261,8 +212,17 @@ class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
     );
   }
 
+
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<GearRatioProvider>();
+
+    // Sync controllers on build
+    _syncGearControllers(provider);
+    if (_numGearsCtrl.text != provider.numGears.toString()) {
+       _numGearsCtrl.text = provider.numGears.toString();
+    }
+
     final cs = Theme.of(context).colorScheme;
 
     return ListView(
@@ -272,35 +232,29 @@ class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Vehicle Setup',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Vehicle Setup', style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
 
-              // Tire input toggle (responsive)
               _responsiveChipRow(
                 label: 'Tire Input:',
                 chips: [
                   ChoiceChip(
                     label: const Text('Inches'),
-                    selected: !_useMetricTires,
-                    onSelected: (_) => setState(() => _useMetricTires = false),
+                    selected: !provider.useMetricTires,
+                    onSelected: (_) => provider.setUseMetricTires(false),
                   ),
                   ChoiceChip(
                     label: const Text('Metric (e.g., 275/40R18)'),
-                    selected: _useMetricTires,
-                    onSelected: (_) => setState(() => _useMetricTires = true),
+                    selected: provider.useMetricTires,
+                    onSelected: (_) => provider.setUseMetricTires(true),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
 
-              if (!_useMetricTires)
-                NumField(
-                    controller: _tireDiaCtrl,
-                    label: 'Tire Diameter (in)',
-                    helperText: 'Example: 26.0')
+              if (!provider.useMetricTires)
+                NumField(controller: _tireDiaCtrl, label: 'Tire Diameter (in)', helperText: 'Example: 26.0')
               else
                 TextField(
                   controller: _tireMetricCtrl,
@@ -312,83 +266,52 @@ class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
                 ),
 
               const SizedBox(height: 12),
-              NumField(
-                  controller: _axleRatioCtrl,
-                  label: 'Rear Axle / Final Drive',
-                  helperText: 'Example: 3.73'),
+              NumField(controller: _axleRatioCtrl, label: 'Rear Axle / Final Drive', helperText: 'Example: 3.73'),
 
               const SizedBox(height: 12),
-              // 2WD / 4WD toggle
-              Text('Drivetrain',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium!
-                      .copyWith(color: cs.onSurfaceVariant)),
+              Text('Drivetrain', style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: cs.onSurfaceVariant)),
               const SizedBox(height: 8),
               SegmentedButton<DriveType>(
                 segments: const [
                   ButtonSegment(value: DriveType.twoWD, label: Text('2WD')),
                   ButtonSegment(value: DriveType.fourWD, label: Text('4WD')),
                 ],
-                selected: {_drive},
-                onSelectionChanged: (s) => setState(() => _drive = s.first),
+                selected: {provider.drive},
+                onSelectionChanged: (s) => provider.setDriveType(s.first),
               ),
 
-              if (_drive == DriveType.fourWD) ...[
+              if (provider.drive == DriveType.fourWD) ...[
                 const SizedBox(height: 12),
                 Row(children: [
-                  Expanded(
-                      child: NumField(
-                          controller: _tcaseHighCtrl,
-                          label: 'T-Case High Ratio',
-                          helperText: 'Typical: 1.00')),
+                  Expanded(child: NumField(controller: _tcaseHighCtrl, label: 'T-Case High Ratio', helperText: 'Typical: 1.00')),
                   const SizedBox(width: 12),
-                  Expanded(
-                      child: NumField(
-                          controller: _tcaseLowCtrl,
-                          label: 'T-Case Low Ratio',
-                          helperText: 'Typical: 2.72–4.00')),
+                  Expanded(child: NumField(controller: _tcaseLowCtrl, label: 'T-Case Low Ratio', helperText: 'Typical: 2.72–4.00')),
                 ]),
                 const SizedBox(height: 12),
-                // Range chips (responsive)
                 _responsiveChipRow(
                   label: 'Range:',
                   chips: [
-                    ChoiceChip(
-                      label: const Text('High'),
-                      selected: _range == 'High',
-                      onSelected: (_) => setState(() => _range = 'High'),
-                    ),
-                    ChoiceChip(
-                      label: const Text('Low'),
-                      selected: _range == 'Low',
-                      onSelected: (_) => setState(() => _range = 'Low'),
-                    ),
+                    ChoiceChip(label: const Text('High'), selected: provider.range == 'High', onSelected: (_) => provider.setRange('High')),
+                    ChoiceChip(label: const Text('Low'), selected: provider.range == 'Low', onSelected: (_) => provider.setRange('Low')),
                   ],
                 ),
               ],
 
               const Divider(height: 24),
 
-              // Splitter toggle
               SwitchListTile(
                 title: const Text('Gear Splitter / GearVendors'),
-                subtitle: const Text(
-                    'Optional over/under-drive between trans and axle'),
-                value: _splitterEnabled,
-                onChanged: (v) => setState(() => _splitterEnabled = v),
+                subtitle: const Text('Optional over/under-drive between trans and axle'),
+                value: provider.splitterEnabled,
+                onChanged: (v) => provider.setSplitterEnabled(v),
               ),
-              if (_splitterEnabled) ...[
-                NumField(
-                    controller: _splitterRatioCtrl,
-                    label: 'Splitter Ratio',
-                    helperText: 'Overdrive ~0.78; Underdrive > 1.0'),
+              if (provider.splitterEnabled) ...[
+                NumField(controller: _splitterRatioCtrl, label: 'Splitter Ratio', helperText: 'Overdrive ~0.78; Underdrive > 1.0'),
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Splitter Engaged (On)'),
-                  value: _splitterEngaged,
-                  onChanged: (v) =>
-                      setState(() => _splitterEngaged = v ?? false),
+                  value: provider.splitterEngaged, // Read transient state
+                  onChanged: (v) => provider.setSplitterEngaged(v ?? false), // Set transient state
                 ),
               ],
             ]),
@@ -401,45 +324,36 @@ class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Transmission',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Transmission', style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
 
-              // Manual / Automatic toggle
-              Text('Type',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium!
-                      .copyWith(color: cs.onSurfaceVariant)),
+              Text('Type', style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: cs.onSurfaceVariant)),
               const SizedBox(height: 8),
               SegmentedButton<TransType>(
                 segments: const [
                   ButtonSegment(value: TransType.manual, label: Text('Manual')),
-                  ButtonSegment(
-                      value: TransType.automatic, label: Text('Automatic')),
+                  ButtonSegment(value: TransType.automatic, label: Text('Automatic')),
                 ],
-                selected: {_transType},
-                onSelectionChanged: (s) => setState(() => _transType = s.first),
+                selected: {provider.transType},
+                onSelectionChanged: (s) => provider.setTransType(s.first),
               ),
 
               const SizedBox(height: 12),
-              // # of gears (responsive)
-              _responsiveNumGearsRow(),
+              _responsiveNumGearsRow(provider),
 
               const SizedBox(height: 12),
               Column(
                 children: List.generate(
-                    _numGears,
+                    provider.numGears,
                     (i) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
-                          child: KeyedSubtree(
+                          child: KeyedSubtree( // Keep state when list changes
                             key: ValueKey('gear-$i'),
                             child: NumField(
-                                controller: _gearCtrls[i],
-                                label: 'Gear ${i + 1} Ratio',
-                                helperText: i == 0 ? 'e.g., 2.95' : null),
+                              controller: _gearCtrls[i],
+                              label: 'Gear ${i + 1} Ratio',
+                              helperText: i == 0 ? 'e.g., 2.95' : null),
                           ),
                         )),
               ),
@@ -453,58 +367,47 @@ class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Calculate',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Calculate', style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
-              // gear picker
+              
               InputDecorator(
-                decoration: const InputDecoration(
-                    border: OutlineInputBorder(), labelText: 'Selected Gear'),
+                decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Selected Gear'),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
                     isExpanded: true,
-                    value: _selectedGearIndex,
-                    items: List.generate(
-                        _numGears,
-                        (i) => DropdownMenuItem(
-                            value: i, child: Text('Gear ${i + 1}'))),
-                    onChanged: (v) => setState(
-                        () => _selectedGearIndex = v ?? _selectedGearIndex),
+                    value: provider.selectedGearIndex,
+                    items: List.generate(provider.numGears, (i) => DropdownMenuItem(value: i, child: Text('Gear ${i + 1}'))),
+                    onChanged: (v) => provider.setSelectedGearIndex(v ?? provider.selectedGearIndex),
                   ),
                 ),
               ),
-              if (_drive == DriveType.fourWD) ...[
+              if (provider.drive == DriveType.fourWD) ...[
                 const SizedBox(height: 12),
                 InputDecorator(
-                  decoration: const InputDecoration(
-                      border: OutlineInputBorder(), labelText: 'Use Range'),
+                  decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Use Range'),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       isExpanded: true,
-                      value: _range,
+                      value: provider.range,
                       items: const [
                         DropdownMenuItem(value: 'High', child: Text('High')),
                         DropdownMenuItem(value: 'Low', child: Text('Low')),
                       ],
-                      onChanged: (v) => setState(() => _range = v ?? 'High'),
+                      onChanged: (v) => provider.setRange(v ?? 'High'),
                     ),
                   ),
                 ),
               ],
-              if (_splitterEnabled)
+              if (provider.splitterEnabled)
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Splitter Engaged for Calc'),
-                  value: _splitterEngaged,
-                  onChanged: (v) =>
-                      setState(() => _splitterEngaged = v ?? false),
+                  value: provider.splitterEngaged, // Read transient state
+                  onChanged: (v) => provider.setSplitterEngaged(v ?? false), // Set transient state
                 ),
 
-              const SizedBox(height: 12),
-              _InfoRow('Effective Final Drive', _effectiveFinalDrive()),
-              _InfoRow('Selected Gear Ratio', _selectedGearRatio()),
+              // Info rows removed as they duplicate calculations in provider
 
               const SizedBox(height: 16),
               NumField(controller: _mphCtrl, label: 'Speed (mph) → RPM'),
@@ -512,13 +415,13 @@ class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: _calcRpmAtMph,
+                  onPressed: () => _runCalcRpm(context), // Use helper
                   icon: const Icon(Icons.speed),
                   label: const Text('Calculate RPM @ MPH'),
                 ),
               ),
               const SizedBox(height: 8),
-              _ResultRow('RPM @ Speed', _rpmAtMph),
+              _ResultRow('RPM @ Speed', provider.rpmAtMph),
 
               const Divider(height: 32),
 
@@ -527,13 +430,13 @@ class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: _calcMphAtRpm,
+                  onPressed: () => _runCalcMph(context), // Use helper
                   icon: const Icon(Icons.directions_car),
                   label: const Text('Calculate MPH @ RPM'),
                 ),
               ),
               const SizedBox(height: 8),
-              _ResultRow('MPH @ RPM', _mphAtRpm),
+              _ResultRow('MPH @ RPM', provider.mphAtRpm),
             ]),
           ),
         ),
@@ -542,6 +445,7 @@ class _GearRatioCalculatorPageState extends State<GearRatioCalculatorPage> {
   }
 }
 
+// ResultRow and InfoRow copied from original file
 class _ResultRow extends StatelessWidget {
   final String label;
   final double? value;
@@ -559,19 +463,4 @@ class _ResultRow extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final double value;
-  const _InfoRow(this.label, this.value);
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label),
-        Text(value.toStringAsFixed(3)),
-      ],
-    );
-  }
-}
+// InfoRow removed as provider now handles effective final drive etc internally
