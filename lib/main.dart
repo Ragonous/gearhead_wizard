@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // 1. Import Provider
-import 'package:gearhead_wizard/providers/turbo_provider.dart'; // 2. Import our new "brain"
+import 'package:provider/provider.dart';
+import 'package:gearhead_wizard/providers/turbo_provider.dart';
+import 'package:gearhead_wizard/providers/piston_provider.dart';
 
 // Import all your pages
 import 'package:gearhead_wizard/pages/connecting_rod_page.dart';
@@ -11,30 +12,29 @@ import 'package:gearhead_wizard/pages/home_page.dart';
 import 'package:gearhead_wizard/pages/piston_page.dart';
 import 'package:gearhead_wizard/pages/turbo_calculator_page.dart';
 
-// 3. THIS IS THE MODIFIED main() FUNCTION
 void main() async {
-  // This line is required to run code *before* the app starts
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Create and load our "brain"
   final turboProvider = TurboProvider();
-  await turboProvider.loadData(); // Load data from the "notebook"
+  await turboProvider.loadData();
+
+  final pistonProvider = PistonProvider();
+  await pistonProvider.loadData();
 
   runApp(
-    // Use MultiProvider to prepare for more "brains" later
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
           create: (context) => turboProvider,
         ),
-        // You can add more providers here later
+        ChangeNotifierProvider(
+          create: (context) => pistonProvider,
+        ),
       ],
-      child: const GearheadWizardApp(), // Your existing app
+      child: const GearheadWizardApp(),
     ),
   );
 }
-
-// THE REST OF YOUR FILE IS UNCHANGED
 
 class GearheadWizardApp extends StatelessWidget {
   const GearheadWizardApp({super.key});
@@ -51,9 +51,7 @@ class GearheadWizardApp extends StatelessWidget {
           brightness: Brightness.light,
         ),
         useMaterial3: true,
-        // UPDATED: Added NavigationBarTheme to control the look of the bottom bar
         navigationBarTheme: NavigationBarThemeData(
-          // Adjust the label text style to prevent wrapping
           labelTextStyle: MaterialStateProperty.all(
             const TextStyle(fontSize: 11.0, fontWeight: FontWeight.w500),
           ),
@@ -76,7 +74,6 @@ class RootScaffold extends StatefulWidget {
 class _RootScaffoldState extends State<RootScaffold> {
   int _index = 0;
 
-  // Callback function to allow HomePage to change the tab
   void _navigateToTab(int index) {
     setState(() {
       _index = index;
@@ -89,7 +86,7 @@ class _RootScaffoldState extends State<RootScaffold> {
   void initState() {
     super.initState();
     _pages = [
-      HomePage(onNavigate: _navigateToTab), // Pass the callback here
+      HomePage(onNavigate: _navigateToTab),
       const TurboCalculatorPage(),
       const GearRatioCalculatorPage(),
       const CrankshaftPage(),
@@ -159,7 +156,6 @@ class _RootScaffoldState extends State<RootScaffold> {
   }
 }
 
-// AppIcon widget is now defined here to be accessible by the About dialog.
 class AppIcon extends StatelessWidget {
   final double size;
   const AppIcon({super.key, required this.size});
@@ -175,7 +171,6 @@ class AppIcon extends StatelessWidget {
           'assets/logo.png',
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
-            // Fallback if assets/logo.png is missing
             return Container(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Center(child: Icon(Icons.handyman, size: size * 0.6)),
