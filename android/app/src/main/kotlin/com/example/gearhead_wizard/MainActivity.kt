@@ -1,4 +1,4 @@
-package com.example.gearhead_wizard
+package com.mobiledanieldesigns.gearheadwizard
 
 import io.flutter.embedding.android.FlutterActivity
 
