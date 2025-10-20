@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:gearhead_wizard/providers/turbo_provider.dart';
 import 'package:gearhead_wizard/providers/piston_provider.dart';
 import 'package:gearhead_wizard/providers/connecting_rod_provider.dart';
+import 'package:gearhead_wizard/providers/crankshaft_provider.dart'; // 1. Import new provider
 
 // Import all your pages
 import 'package:gearhead_wizard/pages/connecting_rod_page.dart';
@@ -16,6 +17,7 @@ import 'package:gearhead_wizard/pages/turbo_calculator_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Create and load all "brains"
   final turboProvider = TurboProvider();
   await turboProvider.loadData();
 
@@ -24,6 +26,10 @@ void main() async {
 
   final connectingRodProvider = ConnectingRodProvider();
   await connectingRodProvider.loadData();
+
+  // 2. Create and load new provider
+  final crankshaftProvider = CrankshaftProvider();
+  await crankshaftProvider.loadData();
 
   runApp(
     MultiProvider(
@@ -37,11 +43,17 @@ void main() async {
         ChangeNotifierProvider(
           create: (context) => connectingRodProvider,
         ),
+        // 3. Add new provider to the list
+        ChangeNotifierProvider(
+          create: (context) => crankshaftProvider,
+        ),
       ],
       child: const GearheadWizardApp(),
     ),
   );
 }
+
+// --- The rest of your file is unchanged ---
 
 class GearheadWizardApp extends StatelessWidget {
   const GearheadWizardApp({super.key});
