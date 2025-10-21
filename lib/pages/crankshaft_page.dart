@@ -17,6 +17,9 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
   final _mainMaxCtrl = TextEditingController();
   final _rodMinCtrl = TextEditingController();
   final _rodMaxCtrl = TextEditingController();
+  final _crankEndplayCtrl = TextEditingController();
+  final _crankEndplayMinCtrl = TextEditingController();
+  final _crankEndplayMaxCtrl = TextEditingController();
 
   final List<TextEditingController> _mainA = [];
   final List<TextEditingController> _mainB = [];
@@ -29,15 +32,16 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
     super.initState();
     final provider = context.read<CrankshaftProvider>();
 
-    // Set initial text for simple controllers
     _numMainsCtrl.text = provider.numMains.toString();
     _numRodsCtrl.text = provider.numRods.toString();
     _mainMinCtrl.text = provider.mainMin;
     _mainMaxCtrl.text = provider.mainMax;
     _rodMinCtrl.text = provider.rodMin;
     _rodMaxCtrl.text = provider.rodMax;
+    _crankEndplayCtrl.text = provider.crankEndplay;
+    _crankEndplayMinCtrl.text = provider.crankEndplayMin;
+    _crankEndplayMaxCtrl.text = provider.crankEndplayMax;
 
-    // Add listeners to update provider when text changes
     _mainMinCtrl.addListener(() {
       context.read<CrankshaftProvider>().updateMainMin(_mainMinCtrl.text);
     });
@@ -50,8 +54,16 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
     _rodMaxCtrl.addListener(() {
       context.read<CrankshaftProvider>().updateRodMax(_rodMaxCtrl.text);
     });
+    _crankEndplayCtrl.addListener(() {
+      context.read<CrankshaftProvider>().updateCrankEndplay(_crankEndplayCtrl.text);
+    });
+     _crankEndplayMinCtrl.addListener(() {
+      context.read<CrankshaftProvider>().updateCrankEndplayMin(_crankEndplayMinCtrl.text);
+    });
+     _crankEndplayMaxCtrl.addListener(() {
+      context.read<CrankshaftProvider>().updateCrankEndplayMax(_crankEndplayMaxCtrl.text);
+    });
 
-    // Initial fill of controller lists
     _syncControllerLists(provider);
   }
 
@@ -63,37 +75,36 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
     _mainMaxCtrl.dispose();
     _rodMinCtrl.dispose();
     _rodMaxCtrl.dispose();
+    _crankEndplayCtrl.dispose();
+    _crankEndplayMinCtrl.dispose();
+    _crankEndplayMaxCtrl.dispose();
 
     for (final c in _mainA) c.dispose();
     for (final c in _mainB) c.dispose();
     for (final c in _rodA) c.dispose();
     for (final c in _rodB) c.dispose();
-    
+
     super.dispose();
   }
-  
-  // Helper to sync our 4 UI lists with the provider's data
+
   void _syncControllerLists(CrankshaftProvider provider) {
-    // A helper function to sync one list
     void syncList(
       List<TextEditingController> controllers,
       int targetSize,
       String Function(int) textSelector,
       void Function(int, String) updater,
     ) {
-      // --- GROW ---
       while (controllers.length < targetSize) {
         final index = controllers.length;
         final text = textSelector(index);
         final ctrl = TextEditingController(text: text);
-        
+
         ctrl.addListener(() {
           updater(index, ctrl.text);
         });
         controllers.add(ctrl);
       }
-      
-      // --- SHRINK ---
+
       while (controllers.length > targetSize) {
         final ctrl = controllers.removeLast();
         WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.dispose());
@@ -101,7 +112,6 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
     }
 
     final providerRead = context.read<CrankshaftProvider>();
-    // Sync Main lists
     syncList(
       _mainA,
       provider.numMains,
@@ -114,8 +124,6 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
       (i) => provider.mainMeasurements[i].b,
       (i, v) => providerRead.updateMainB(i, v),
     );
-    
-    // Sync Rod lists
     syncList(
       _rodA,
       provider.numRods,
@@ -135,12 +143,21 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
     final provider = context.watch<CrankshaftProvider>();
 
     _syncControllerLists(provider);
-    
+
     if (_numMainsCtrl.text != provider.numMains.toString()) {
       _numMainsCtrl.text = provider.numMains.toString();
     }
     if (_numRodsCtrl.text != provider.numRods.toString()) {
       _numRodsCtrl.text = provider.numRods.toString();
+    }
+    if (_crankEndplayCtrl.text != provider.crankEndplay) {
+      _crankEndplayCtrl.text = provider.crankEndplay;
+    }
+    if (_crankEndplayMinCtrl.text != provider.crankEndplayMin) {
+       _crankEndplayMinCtrl.text = provider.crankEndplayMin;
+    }
+     if (_crankEndplayMaxCtrl.text != provider.crankEndplayMax) {
+       _crankEndplayMaxCtrl.text = provider.crankEndplayMax;
     }
 
     final cs = Theme.of(context).colorScheme;
@@ -148,13 +165,13 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Header / options
+        // Header / options Card
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Crankshaft Measurements',
+              const Text('Crankshaft Setup',
                   style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
               Text('Units: use the same units throughout (in or mm).',
@@ -226,15 +243,15 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
               ),
               if (provider.limitsEnabled) ...[
                 Row(children: [
-                  Expanded(child: NumField(controller: _mainMinCtrl, label: 'Main Min')),
+                  Expanded(child: NumField(controller: _mainMinCtrl, label: 'Main Journal Min')),
                   const SizedBox(width: 8),
-                  Expanded(child: NumField(controller: _mainMaxCtrl, label: 'Main Max')),
+                  Expanded(child: NumField(controller: _mainMaxCtrl, label: 'Main Journal Max')),
                 ]),
                 const SizedBox(height: 8),
                 Row(children: [
-                  Expanded(child: NumField(controller: _rodMinCtrl, label: 'Rod Min')),
+                  Expanded(child: NumField(controller: _rodMinCtrl, label: 'Rod Journal Min')),
                   const SizedBox(width: 8),
-                  Expanded(child: NumField(controller: _rodMaxCtrl, label: 'Rod Max')),
+                  Expanded(child: NumField(controller: _rodMaxCtrl, label: 'Rod Journal Max')),
                 ]),
               ],
 
@@ -244,11 +261,13 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
                 child: FilledButton.icon(
                   onPressed: () => provider.calculate(),
                   icon: const Icon(Icons.calculate),
+                  // <<< --- THIS TEXT LOGIC IS UPDATED --- >>>
                   label: Text(provider.crossSections
                       ? (provider.limitsEnabled
-                          ? 'Calculate Roundness & Limits'
+                          ? 'Calc Journals & Roundness' // Changed
                           : 'Calculate Roundness')
-                      : (provider.limitsEnabled ? 'Calculate Limits' : 'Calculate')),
+                      : (provider.limitsEnabled ? 'Check Journal Limits' : 'Calculate')), // Changed
+                  // <<< --- END OF UPDATE --- >>>
                 ),
               ),
             ]),
@@ -257,7 +276,7 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
 
         const SizedBox(height: 12),
 
-        // Main journals
+        // Main journals card (unchanged)
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -295,7 +314,7 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
 
         const SizedBox(height: 12),
 
-        // Rod journals
+        // Rod journals card (unchanged)
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -331,12 +350,59 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
           ),
         ),
 
+        // Endplay card (unchanged)
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Crankshaft Endplay',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                       Expanded(
+                        child: NumField(
+                          controller: _crankEndplayCtrl,
+                          label: 'Measured Endplay',
+                          helperText: 'Measured at thrust bearing'
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if(provider.limitsEnabled) StatusChip(provider.crankEndplayWithin),
+                    ],
+                  ),
+                  if (provider.limitsEnabled) ...[
+                     const SizedBox(height: 10),
+                     Row(children: [
+                      Expanded(child: NumField(controller: _crankEndplayMinCtrl, label: 'Endplay Min Spec')),
+                      const SizedBox(width: 8),
+                      Expanded(child: NumField(controller: _crankEndplayMaxCtrl, label: 'Endplay Max Spec')),
+                    ]),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => provider.calculateEndplayStatus(),
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: const Text('Check Endplay Spec'),
+                      ),
+                    ),
+                  ]
+                ]
+            ),
+          ),
+        ),
+
         const SizedBox(height: 24),
         const NotesCard("""
 Guidance:
-• Enter all diameters using the same unit (in or mm).
+• Enter all measurements using the same unit (in or mm).
+• Crankshaft endplay is the fore/aft movement measured with a dial indicator.
 • Cross-section A/B are taken ~90° apart; roundness = |A − B|.
-• Limits: if enabled, each reading (A/B or single) is checked against min/max.
+• Limits: if enabled, each reading is checked against its min/max spec. Endplay uses its specific min/max.
 • If min > max, the check is skipped (invalid limits).
 """),
       ],
