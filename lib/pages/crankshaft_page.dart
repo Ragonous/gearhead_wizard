@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:gearhead_wizard/providers/crankshaft_provider.dart';
+import 'package:provider/provider.dart';
 import '../widgets/ui_helpers.dart';
 
 class CrankshaftPage extends StatefulWidget {
@@ -8,43 +10,49 @@ class CrankshaftPage extends StatefulWidget {
 }
 
 class _CrankshaftPageState extends State<CrankshaftPage> {
-  // Counts
-  int _numMains = 5;
-  int _numRods = 8;
+  // --- LOCAL UI CONTROLLERS ---
+  final _numMainsCtrl = TextEditingController();
+  final _numRodsCtrl = TextEditingController();
+  final _mainMinCtrl = TextEditingController();
+  final _mainMaxCtrl = TextEditingController();
+  final _rodMinCtrl = TextEditingController();
+  final _rodMaxCtrl = TextEditingController();
 
-  final TextEditingController _numMainsCtrl = TextEditingController(text: '5');
-  final TextEditingController _numRodsCtrl = TextEditingController(text: '8');
-
-  // Cross-section toggle (two measurements per journal at ~90° apart)
-  bool _crossSections = false;
-
-  // Manufacturer limits toggle
-  bool _limitsEnabled = false;
-  final TextEditingController _mainMinCtrl = TextEditingController();
-  final TextEditingController _mainMaxCtrl = TextEditingController();
-  final TextEditingController _rodMinCtrl = TextEditingController();
-  final TextEditingController _rodMaxCtrl = TextEditingController();
-
-  // Measurement controllers
   final List<TextEditingController> _mainA = [];
   final List<TextEditingController> _mainB = [];
   final List<TextEditingController> _rodA = [];
   final List<TextEditingController> _rodB = [];
-
-  // Results (in same units as inputs)
-  final List<double?> _mainRoundness = [];
-  final List<double?> _rodRoundness = [];
-
-  // Limits results (null = not computed / not applicable)
-  final List<bool?> _mainWithinA = [];
-  final List<bool?> _mainWithinB = [];
-  final List<bool?> _rodWithinA = [];
-  final List<bool?> _rodWithinB = [];
+  // --- END OF CONTROLLERS ---
 
   @override
   void initState() {
     super.initState();
-    _resizeLists();
+    final provider = context.read<CrankshaftProvider>();
+
+    // Set initial text for simple controllers
+    _numMainsCtrl.text = provider.numMains.toString();
+    _numRodsCtrl.text = provider.numRods.toString();
+    _mainMinCtrl.text = provider.mainMin;
+    _mainMaxCtrl.text = provider.mainMax;
+    _rodMinCtrl.text = provider.rodMin;
+    _rodMaxCtrl.text = provider.rodMax;
+
+    // Add listeners to update provider when text changes
+    _mainMinCtrl.addListener(() {
+      context.read<CrankshaftProvider>().updateMainMin(_mainMinCtrl.text);
+    });
+    _mainMaxCtrl.addListener(() {
+      context.read<CrankshaftProvider>().updateMainMax(_mainMaxCtrl.text);
+    });
+    _rodMinCtrl.addListener(() {
+      context.read<CrankshaftProvider>().updateRodMin(_rodMinCtrl.text);
+    });
+    _rodMaxCtrl.addListener(() {
+      context.read<CrankshaftProvider>().updateRodMax(_rodMaxCtrl.text);
+    });
+
+    // Initial fill of controller lists
+    _syncControllerLists(provider);
   }
 
   @override
@@ -55,186 +63,86 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
     _mainMaxCtrl.dispose();
     _rodMinCtrl.dispose();
     _rodMaxCtrl.dispose();
-    for (final c in _mainA) {
-      c.dispose();
-    }
-    for (final c in _mainB) {
-      c.dispose();
-    }
-    for (final c in _rodA) {
-      c.dispose();
-    }
-    for (final c in _rodB) {
-      c.dispose();
-    }
+
+    for (final c in _mainA) c.dispose();
+    for (final c in _mainB) c.dispose();
+    for (final c in _rodA) c.dispose();
+    for (final c in _rodB) c.dispose();
+    
     super.dispose();
   }
-
-  // --- ensure controller/result list sizes are always correct ---
-  void _resizeLists() {
-    _numMains = _numMains.clamp(1, 10);
-    _numRods = _numRods.clamp(1, 16);
-
-    void grow(List<TextEditingController> list, int to) {
-      while (list.length < to) {
-        list.add(TextEditingController());
+  
+  // Helper to sync our 4 UI lists with the provider's data
+  void _syncControllerLists(CrankshaftProvider provider) {
+    // A helper function to sync one list
+    void syncList(
+      List<TextEditingController> controllers,
+      int targetSize,
+      String Function(int) textSelector,
+      void Function(int, String) updater,
+    ) {
+      // --- GROW ---
+      while (controllers.length < targetSize) {
+        final index = controllers.length;
+        final text = textSelector(index);
+        final ctrl = TextEditingController(text: text);
+        
+        ctrl.addListener(() {
+          updater(index, ctrl.text);
+        });
+        controllers.add(ctrl);
+      }
+      
+      // --- SHRINK ---
+      while (controllers.length > targetSize) {
+        final ctrl = controllers.removeLast();
+        WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.dispose());
       }
     }
 
-    void shrink(List<TextEditingController> list, int to) {
-      while (list.length > to) {
-        list.removeLast().dispose();
-      }
-    }
-
-    grow(_mainA, _numMains);
-    grow(_mainB, _numMains);
-    grow(_rodA, _numRods);
-    grow(_rodB, _numRods);
-    shrink(_mainA, _numMains);
-    shrink(_mainB, _numMains);
-    shrink(_rodA, _numRods);
-    shrink(_rodB, _numRods);
-
-    while (_mainRoundness.length < _numMains) {
-      _mainRoundness.add(null);
-    }
-    while (_mainRoundness.length > _numMains) {
-      _mainRoundness.removeLast();
-    }
-    while (_rodRoundness.length < _numRods) {
-      _rodRoundness.add(null);
-    }
-    while (_rodRoundness.length > _numRods) {
-      _rodRoundness.removeLast();
-    }
-
-    while (_mainWithinA.length < _numMains) {
-      _mainWithinA.add(null);
-    }
-    while (_mainWithinA.length > _numMains) {
-      _mainWithinA.removeLast();
-    }
-    while (_mainWithinB.length < _numMains) {
-      _mainWithinB.add(null);
-    }
-    while (_mainWithinB.length > _numMains) {
-      _mainWithinB.removeLast();
-    }
-
-    while (_rodWithinA.length < _numRods) {
-      _rodWithinA.add(null);
-    }
-    while (_rodWithinA.length > _numRods) {
-      _rodWithinA.removeLast();
-    }
-    while (_rodWithinB.length < _numRods) {
-      _rodWithinB.add(null);
-    }
-    while (_rodWithinB.length > _numRods) {
-      _rodWithinB.removeLast();
-    }
-  }
-
-  void _setMains(int n) {
-    setState(() {
-      _numMains = n.clamp(1, 10);
-      _numMainsCtrl.text = '$_numMains';
-      _resizeLists();
-      _clearResults();
-    });
-  }
-
-  void _setRods(int n) {
-    setState(() {
-      _numRods = n.clamp(1, 16);
-      _numRodsCtrl.text = '$_numRods';
-      _resizeLists();
-      _clearResults();
-    });
-  }
-
-  void _clearResults() {
-    setState(() {
-      for (int i = 0; i < _mainRoundness.length; i++) {
-        _mainRoundness[i] = null;
-      }
-      for (int i = 0; i < _rodRoundness.length; i++) {
-        _rodRoundness[i] = null;
-      }
-      for (int i = 0; i < _mainWithinA.length; i++) {
-        _mainWithinA[i] = null;
-      }
-      for (int i = 0; i < _mainWithinB.length; i++) {
-        _mainWithinB[i] = null;
-      }
-      for (int i = 0; i < _rodWithinA.length; i++) {
-        _rodWithinA[i] = null;
-      }
-      for (int i = 0; i < _rodWithinB.length; i++) {
-        _rodWithinB[i] = null;
-      }
-    });
-  }
-
-  double? _p(TextEditingController c) => double.tryParse(c.text.trim());
-
-  bool? _within(double? v, double? min, double? max) {
-    if (v == null || min == null || max == null) return null;
-    if (min > max) return null;
-    return v >= min && v <= max;
-  }
-
-  void _calculate() {
-    _clearResults();
-
-    final mainMin = _limitsEnabled ? _p(_mainMinCtrl) : null;
-    final mainMax = _limitsEnabled ? _p(_mainMaxCtrl) : null;
-    final rodMin = _limitsEnabled ? _p(_rodMinCtrl) : null;
-    final rodMax = _limitsEnabled ? _p(_rodMaxCtrl) : null;
-
-    setState(() {
-      if (_crossSections) {
-        for (int i = 0; i < _numMains; i++) {
-          final a = _p(_mainA[i]);
-          final b = _p(_mainB[i]);
-          _mainRoundness[i] = (a != null && b != null) ? (a - b).abs() : null;
-        }
-        for (int i = 0; i < _numRods; i++) {
-          final a = _p(_rodA[i]);
-          final b = _p(_rodB[i]);
-          _rodRoundness[i] = (a != null && b != null) ? (a - b).abs() : null;
-        }
-      }
-
-      if (_limitsEnabled) {
-        for (int i = 0; i < _numMains; i++) {
-          final a = _p(_mainA[i]);
-          _mainWithinA[i] = _within(a, mainMin, mainMax);
-          if (_crossSections) {
-            final b = _p(_mainB[i]);
-            _mainWithinB[i] = _within(b, mainMin, mainMax);
-          } else {
-            _mainWithinB[i] = null;
-          }
-        }
-        for (int i = 0; i < _numRods; i++) {
-          final a = _p(_rodA[i]);
-          _rodWithinA[i] = _within(a, rodMin, rodMax);
-          if (_crossSections) {
-            final b = _p(_rodB[i]);
-            _rodWithinB[i] = _within(b, rodMin, rodMax);
-          } else {
-            _rodWithinB[i] = null;
-          }
-        }
-      }
-    });
+    final providerRead = context.read<CrankshaftProvider>();
+    // Sync Main lists
+    syncList(
+      _mainA,
+      provider.numMains,
+      (i) => provider.mainMeasurements[i].a,
+      (i, v) => providerRead.updateMainA(i, v),
+    );
+    syncList(
+      _mainB,
+      provider.numMains,
+      (i) => provider.mainMeasurements[i].b,
+      (i, v) => providerRead.updateMainB(i, v),
+    );
+    
+    // Sync Rod lists
+    syncList(
+      _rodA,
+      provider.numRods,
+      (i) => provider.rodMeasurements[i].a,
+      (i, v) => providerRead.updateRodA(i, v),
+    );
+    syncList(
+      _rodB,
+      provider.numRods,
+      (i) => provider.rodMeasurements[i].b,
+      (i, v) => providerRead.updateRodB(i, v),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    _resizeLists(); // keep arrays sized safely
+    final provider = context.watch<CrankshaftProvider>();
+
+    _syncControllerLists(provider);
+    
+    if (_numMainsCtrl.text != provider.numMains.toString()) {
+      _numMainsCtrl.text = provider.numMains.toString();
+    }
+    if (_numRodsCtrl.text != provider.numRods.toString()) {
+      _numRodsCtrl.text = provider.numRods.toString();
+    }
+
     final cs = Theme.of(context).colorScheme;
 
     return ListView(
@@ -264,15 +172,17 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
                       labelText: 'Main Journals',
                       helperText: '1–10',
                     ),
-                    onChanged: (v) => _setMains(int.tryParse(v) ?? _numMains),
+                    onChanged: (v) => provider.setNumMains(
+                      int.tryParse(v) ?? provider.numMains
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                    onPressed: () => _setMains(_numMains - 1),
+                    onPressed: () => provider.setNumMains(provider.numMains - 1),
                     icon: const Icon(Icons.remove_circle_outline)),
                 IconButton(
-                    onPressed: () => _setMains(_numMains + 1),
+                    onPressed: () => provider.setNumMains(provider.numMains + 1),
                     icon: const Icon(Icons.add_circle_outline)),
               ]),
               const SizedBox(height: 12),
@@ -286,15 +196,17 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
                       labelText: 'Rod Journals',
                       helperText: '1–16',
                     ),
-                    onChanged: (v) => _setRods(int.tryParse(v) ?? _numRods),
+                    onChanged: (v) => provider.setNumRods(
+                      int.tryParse(v) ?? provider.numRods
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                    onPressed: () => _setRods(_numRods - 1),
+                    onPressed: () => provider.setNumRods(provider.numRods - 1),
                     icon: const Icon(Icons.remove_circle_outline)),
                 IconButton(
-                    onPressed: () => _setRods(_numRods + 1),
+                    onPressed: () => provider.setNumRods(provider.numRods + 1),
                     icon: const Icon(Icons.add_circle_outline)),
               ]),
 
@@ -304,22 +216,15 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
               SwitchListTile(
                 title: const Text('Cross-section (roundness) check'),
                 subtitle: const Text('Enable A/B @ ~90° and compute |A − B|'),
-                value: _crossSections,
-                onChanged: (v) => setState(() {
-                  _crossSections = v;
-                  _clearResults();
-                }),
+                value: provider.crossSections,
+                onChanged: (v) => provider.setCrossSections(v),
               ),
-
               SwitchListTile(
                 title: const Text('Check against manufacturer limits'),
-                value: _limitsEnabled,
-                onChanged: (v) => setState(() {
-                  _limitsEnabled = v;
-                  _clearResults();
-                }),
+                value: provider.limitsEnabled,
+                onChanged: (v) => provider.setLimitsEnabled(v),
               ),
-              if (_limitsEnabled) ...[
+              if (provider.limitsEnabled) ...[
                 Row(children: [
                   Expanded(child: NumField(controller: _mainMinCtrl, label: 'Main Min')),
                   const SizedBox(width: 8),
@@ -337,13 +242,13 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: _calculate,
+                  onPressed: () => provider.calculate(),
                   icon: const Icon(Icons.calculate),
-                  label: Text(_crossSections
-                      ? (_limitsEnabled
+                  label: Text(provider.crossSections
+                      ? (provider.limitsEnabled
                           ? 'Calculate Roundness & Limits'
                           : 'Calculate Roundness')
-                      : (_limitsEnabled ? 'Calculate Limits' : 'Calculate')),
+                      : (provider.limitsEnabled ? 'Calculate Limits' : 'Calculate')),
                 ),
               ),
             ]),
@@ -362,22 +267,24 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
                   style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
               Column(
-                children: List.generate(_numMains, (i) {
+                  children: List.generate(provider.numMains, (i) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _crossSections
+                    child: provider.crossSections
                         ? TwoFieldRow(
+                            key: ValueKey('main-$i'),
                             label: 'Main ${i + 1}',
                             aCtrl: _mainA[i],
                             bCtrl: _mainB[i],
-                            roundness: _mainRoundness[i],
-                            withinA: _mainWithinA[i],
-                            withinB: _mainWithinB[i],
+                            roundness: provider.mainRoundness[i],
+                            withinA: provider.mainWithinA[i],
+                            withinB: provider.mainWithinB[i],
                           )
                         : SingleFieldRow(
+                            key: ValueKey('main-$i'),
                             label: 'Main ${i + 1}',
                             controller: _mainA[i],
-                            within: _mainWithinA[i],
+                            within: provider.mainWithinA[i],
                           ),
                   );
                 }),
@@ -398,22 +305,24 @@ class _CrankshaftPageState extends State<CrankshaftPage> {
                   style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
               Column(
-                children: List.generate(_numRods, (i) {
+                  children: List.generate(provider.numRods, (i) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _crossSections
+                    child: provider.crossSections
                         ? TwoFieldRow(
+                            key: ValueKey('rod-$i'),
                             label: 'Rod ${i + 1}',
                             aCtrl: _rodA[i],
                             bCtrl: _rodB[i],
-                            roundness: _rodRoundness[i],
-                            withinA: _rodWithinA[i],
-                            withinB: _rodWithinB[i],
+                            roundness: provider.rodRoundness[i],
+                            withinA: provider.rodWithinA[i],
+                            withinB: provider.rodWithinB[i],
                           )
                         : SingleFieldRow(
+                            key: ValueKey('rod-$i'),
                             label: 'Rod ${i + 1}',
                             controller: _rodA[i],
-                            within: _rodWithinA[i],
+                            within: provider.rodWithinA[i],
                           ),
                   );
                 }),

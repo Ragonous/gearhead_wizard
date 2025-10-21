@@ -1,4 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:gearhead_wizard/providers/turbo_provider.dart';
+import 'package:gearhead_wizard/providers/piston_provider.dart';
+import 'package:gearhead_wizard/providers/connecting_rod_provider.dart';
+import 'package:gearhead_wizard/providers/crankshaft_provider.dart';
+import 'package:gearhead_wizard/providers/engine_provider.dart';
+import 'package:gearhead_wizard/providers/gear_ratio_provider.dart'; // 1. Import new provider
+
+// Import all your pages
 import 'package:gearhead_wizard/pages/connecting_rod_page.dart';
 import 'package:gearhead_wizard/pages/crankshaft_page.dart';
 import 'package:gearhead_wizard/pages/engine_page.dart';
@@ -7,7 +16,46 @@ import 'package:gearhead_wizard/pages/home_page.dart';
 import 'package:gearhead_wizard/pages/piston_page.dart';
 import 'package:gearhead_wizard/pages/turbo_calculator_page.dart';
 
-void main() => runApp(const GearheadWizardApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Create and load all "brains"
+  final turboProvider = TurboProvider();
+  await turboProvider.loadData();
+
+  final pistonProvider = PistonProvider();
+  await pistonProvider.loadData();
+
+  final connectingRodProvider = ConnectingRodProvider();
+  await connectingRodProvider.loadData();
+
+  final crankshaftProvider = CrankshaftProvider();
+  await crankshaftProvider.loadData();
+
+  final engineProvider = EngineProvider();
+  await engineProvider.loadData();
+
+  // 2. Create and load new provider
+  final gearRatioProvider = GearRatioProvider();
+  await gearRatioProvider.loadData();
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => turboProvider),
+        ChangeNotifierProvider(create: (context) => pistonProvider),
+        ChangeNotifierProvider(create: (context) => connectingRodProvider),
+        ChangeNotifierProvider(create: (context) => crankshaftProvider),
+        ChangeNotifierProvider(create: (context) => engineProvider),
+        // 3. Add new provider to the list
+        ChangeNotifierProvider(create: (context) => gearRatioProvider),
+      ],
+      child: const GearheadWizardApp(),
+    ),
+  );
+}
+
+// --- The rest of your file is unchanged ---
 
 class GearheadWizardApp extends StatelessWidget {
   const GearheadWizardApp({super.key});
@@ -24,9 +72,7 @@ class GearheadWizardApp extends StatelessWidget {
           brightness: Brightness.light,
         ),
         useMaterial3: true,
-        // UPDATED: Added NavigationBarTheme to control the look of the bottom bar
         navigationBarTheme: NavigationBarThemeData(
-          // Adjust the label text style to prevent wrapping
           labelTextStyle: MaterialStateProperty.all(
             const TextStyle(fontSize: 11.0, fontWeight: FontWeight.w500),
           ),
@@ -49,7 +95,6 @@ class RootScaffold extends StatefulWidget {
 class _RootScaffoldState extends State<RootScaffold> {
   int _index = 0;
 
-  // Callback function to allow HomePage to change the tab
   void _navigateToTab(int index) {
     setState(() {
       _index = index;
@@ -62,7 +107,7 @@ class _RootScaffoldState extends State<RootScaffold> {
   void initState() {
     super.initState();
     _pages = [
-      HomePage(onNavigate: _navigateToTab), // Pass the callback here
+      HomePage(onNavigate: _navigateToTab),
       const TurboCalculatorPage(),
       const GearRatioCalculatorPage(),
       const CrankshaftPage(),
@@ -132,7 +177,6 @@ class _RootScaffoldState extends State<RootScaffold> {
   }
 }
 
-// AppIcon widget is now defined here to be accessible by the About dialog.
 class AppIcon extends StatelessWidget {
   final double size;
   const AppIcon({super.key, required this.size});
@@ -148,7 +192,6 @@ class AppIcon extends StatelessWidget {
           'assets/logo.png',
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
-            // Fallback if assets/logo.png is missing
             return Container(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Center(child: Icon(Icons.handyman, size: size * 0.6)),

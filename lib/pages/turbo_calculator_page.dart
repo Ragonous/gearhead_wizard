@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../widgets/ui_helpers.dart';
+import 'package:provider/provider.dart';
+import 'package:gearhead_wizard/providers/turbo_provider.dart';
+import 'package:gearhead_wizard/widgets/ui_helpers.dart';
 
 class TurboCalculatorPage extends StatefulWidget {
   const TurboCalculatorPage({super.key});
@@ -8,12 +10,18 @@ class TurboCalculatorPage extends StatefulWidget {
 }
 
 class _TurboCalculatorPageState extends State<TurboCalculatorPage> {
-  final _naHpCtrl = TextEditingController(text: '300');
-  final _boostPsiCtrl = TextEditingController(text: '8');
-  final _efficiencyCtrl = TextEditingController(text: '0.90');
+  final _naHpCtrl = TextEditingController();
+  final _boostPsiCtrl = TextEditingController();
+  final _efficiencyCtrl = TextEditingController();
 
-  double? _pressureRatio;
-  double? _boostedHp;
+  @override
+  void initState() {
+    super.initState();
+    final turbo = context.read<TurboProvider>();
+    _naHpCtrl.text = turbo.naHp;
+    _boostPsiCtrl.text = turbo.boostPsi;
+    _efficiencyCtrl.text = turbo.efficiency;
+  }
 
   @override
   void dispose() {
@@ -24,33 +32,24 @@ class _TurboCalculatorPageState extends State<TurboCalculatorPage> {
   }
 
   void _calculate() {
-    final naHp = double.tryParse(_naHpCtrl.text.trim());
-    final boostPsi = double.tryParse(_boostPsiCtrl.text.trim());
-    final eff = double.tryParse(_efficiencyCtrl.text.trim());
+    final turbo = context.read<TurboProvider>();
+    turbo.updateNaHp(_naHpCtrl.text.trim());
+    turbo.updateBoostPsi(_boostPsiCtrl.text.trim());
+    turbo.updateEfficiency(_efficiencyCtrl.text.trim());
 
-    if (naHp == null || boostPsi == null || eff == null) {
-      _snack('Please enter valid numbers.');
-      return;
+    final String? error = turbo.calculate();
+
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
     }
-    if (eff <= 0 || eff > 1.2) {
-      _snack('Efficiency should be ~0.70–1.00 (try 0.85–0.95).');
-      return;
-    }
-
-    final pr = (boostPsi + 14.7) / 14.7;
-    final estHp = naHp * pr * eff;
-
-    setState(() {
-      _pressureRatio = pr;
-      _boostedHp = estHp;
-    });
   }
-
-  void _snack(String m) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   @override
   Widget build(BuildContext context) {
+    final turbo = context.watch<TurboProvider>();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -65,9 +64,10 @@ class _TurboCalculatorPageState extends State<TurboCalculatorPage> {
                   NumField(controller: _boostPsiCtrl, label: 'Boost (psi)'),
                   const SizedBox(height: 12),
                   NumField(
-                      controller: _efficiencyCtrl,
-                      label: 'Efficiency (0.70–1.00)',
-                      helperText: 'Default 0.90 for a healthy street setup'),
+                    controller: _efficiencyCtrl,
+                    label: 'Efficiency (0.70–1.00)',
+                    helperText: 'Default 0.90 for a healthy street setup',
+                  ),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
@@ -82,15 +82,16 @@ class _TurboCalculatorPageState extends State<TurboCalculatorPage> {
             ),
           ),
           const SizedBox(height: 12),
-          if (_pressureRatio != null || _boostedHp != null)
+          
+          if (turbo.pressureRatio != null || turbo.boostedHp != null)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _ResultRow('Pressure Ratio', _pressureRatio),
+                    _ResultRow('Pressure Ratio', turbo.pressureRatio),
                     const SizedBox(height: 8),
-                    _ResultRow('Estimated Boosted HP', _boostedHp),
+                    _ResultRow('Estimated Boosted HP', turbo.boostedHp),
                   ],
                 ),
               ),
@@ -109,9 +110,7 @@ class _TurboCalculatorPageState extends State<TurboCalculatorPage> {
 class _ResultRow extends StatelessWidget {
   final String label;
   final double? value;
-
   const _ResultRow(this.label, this.value);
-
   @override
   Widget build(BuildContext context) {
     return Row(

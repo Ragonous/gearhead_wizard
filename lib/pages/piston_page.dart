@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../widgets/ui_helpers.dart';
+import 'package:gearhead_wizard/providers/piston_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:gearhead_wizard/widgets/ui_helpers.dart';
 
 class PistonPage extends StatefulWidget {
   const PistonPage({super.key});
@@ -8,26 +10,31 @@ class PistonPage extends StatefulWidget {
 }
 
 class _PistonPageState extends State<PistonPage> {
-  int _numPistons = 8;
-  final _numCtrl = TextEditingController(text: '8');
-
-  bool _crossSections = false;
-  bool _limitsEnabled = false;
-
+  final _numCtrl = TextEditingController();
   final _minCtrl = TextEditingController();
   final _maxCtrl = TextEditingController();
 
   final List<TextEditingController> _pistonA = [];
   final List<TextEditingController> _pistonB = [];
 
-  final List<double?> _roundness = [];
-  final List<bool?> _withinA = [];
-  final List<bool?> _withinB = [];
-
   @override
   void initState() {
     super.initState();
-    _resizeLists();
+    
+    final provider = context.read<PistonProvider>();
+
+    _numCtrl.text = provider.numPistons.toString();
+    _minCtrl.text = provider.min;
+    _maxCtrl.text = provider.max;
+    
+    _minCtrl.addListener(() {
+      context.read<PistonProvider>().updateMin(_minCtrl.text);
+    });
+    _maxCtrl.addListener(() {
+      context.read<PistonProvider>().updateMax(_maxCtrl.text);
+    });
+    
+    _syncControllerLists(provider);
   }
 
   @override
@@ -43,102 +50,48 @@ class _PistonPageState extends State<PistonPage> {
     }
     super.dispose();
   }
-
-  void _resizeLists() {
-    _numPistons = _numPistons.clamp(1, 16);
-
-    void grow(List<TextEditingController> list, int to) {
-      while (list.length < to) {
-        list.add(TextEditingController());
-      }
+  
+  void _syncControllerLists(PistonProvider provider) {
+    while (_pistonA.length < provider.numPistons) {
+      final index = _pistonA.length;
+      final text = provider.measurements[index].a;
+      final ctrl = TextEditingController(text: text);
+      
+      ctrl.addListener(() {
+        context.read<PistonProvider>().updateMeasurementA(index, ctrl.text);
+      });
+      _pistonA.add(ctrl);
+    }
+    while (_pistonB.length < provider.numPistons) {
+      final index = _pistonB.length;
+      final text = provider.measurements[index].b;
+      final ctrl = TextEditingController(text: text);
+      ctrl.addListener(() {
+        context.read<PistonProvider>().updateMeasurementB(index, ctrl.text);
+      });
+      _pistonB.add(ctrl);
     }
 
-    void shrink(List<TextEditingController> list, int to) {
-      while (list.length > to) {
-        list.removeLast().dispose();
-      }
+    while (_pistonA.length > provider.numPistons) {
+      final ctrl = _pistonA.removeLast();
+      WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.dispose());
     }
-
-    grow(_pistonA, _numPistons);
-    grow(_pistonB, _numPistons);
-    shrink(_pistonA, _numPistons);
-    shrink(_pistonB, _numPistons);
-
-    while (_roundness.length < _numPistons) {
-      _roundness.add(null);
+    while (_pistonB.length > provider.numPistons) {
+      final ctrl = _pistonB.removeLast();
+      WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.dispose());
     }
-    while (_roundness.length > _numPistons) {
-      _roundness.removeLast();
-    }
-
-    while (_withinA.length < _numPistons) {
-      _withinA.add(null);
-    }
-    while (_withinA.length > _numPistons) {
-      _withinA.removeLast();
-    }
-
-    while (_withinB.length < _numPistons) {
-      _withinB.add(null);
-    }
-    while (_withinB.length > _numPistons) {
-      _withinB.removeLast();
-    }
-  }
-
-  void _setCount(int n) {
-    setState(() {
-      _numPistons = n.clamp(1, 16);
-      _numCtrl.text = '$_numPistons';
-      _resizeLists();
-      _clearResults();
-    });
-  }
-
-  void _clearResults() {
-    setState(() {
-      for (int i = 0; i < _numPistons; i++) {
-        _roundness[i] = null;
-        _withinA[i] = null;
-        _withinB[i] = null;
-      }
-    });
-  }
-
-  double? _p(TextEditingController c) => double.tryParse(c.text.trim());
-
-  bool? _within(double? v, double? min, double? max) {
-    if (v == null || min == null || max == null) return null;
-    if (min > max) return null;
-    return v >= min && v <= max;
-  }
-
-  void _calculate() {
-    _clearResults();
-    final min = _limitsEnabled ? _p(_minCtrl) : null;
-    final max = _limitsEnabled ? _p(_maxCtrl) : null;
-
-    setState(() {
-      for (int i = 0; i < _numPistons; i++) {
-        final a = _p(_pistonA[i]);
-        final b = _p(_pistonB[i]);
-
-        if (_crossSections) {
-          _roundness[i] = (a != null && b != null) ? (a - b).abs() : null;
-        }
-        if (_limitsEnabled) {
-          _withinA[i] = _within(a, min, max);
-          if (_crossSections) {
-            _withinB[i] = _within(b, min, max);
-          }
-        }
-      }
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    _resizeLists();
+    final provider = context.watch<PistonProvider>();
+
+    _syncControllerLists(provider);
+    
+    if (_numCtrl.text != provider.numPistons.toString()) {
+      _numCtrl.text = provider.numPistons.toString();
+    }
+
     final cs = Theme.of(context).colorScheme;
 
     return ListView(
@@ -155,7 +108,7 @@ class _PistonPageState extends State<PistonPage> {
               Text('Use consistent units (in or mm).',
                   style: TextStyle(color: cs.onSurfaceVariant)),
               const SizedBox(height: 12),
-
+              
               Row(children: [
                 Expanded(
                   child: TextField(
@@ -166,15 +119,19 @@ class _PistonPageState extends State<PistonPage> {
                       labelText: 'Number of Pistons',
                       helperText: '1–16',
                     ),
-                    onChanged: (v) => _setCount(int.tryParse(v) ?? _numPistons),
+                    onChanged: (v) {
+                       provider.setNumPistons(
+                         int.tryParse(v) ?? provider.numPistons
+                       );
+                    }
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                    onPressed: () => _setCount(_numPistons - 1),
+                    onPressed: () => provider.setNumPistons(provider.numPistons - 1),
                     icon: const Icon(Icons.remove_circle_outline)),
                 IconButton(
-                    onPressed: () => _setCount(_numPistons + 1),
+                    onPressed: () => provider.setNumPistons(provider.numPistons + 1),
                     icon: const Icon(Icons.add_circle_outline)),
               ]),
 
@@ -184,21 +141,17 @@ class _PistonPageState extends State<PistonPage> {
                 title: const Text('Cross-section (roundness) check'),
                 subtitle:
                     const Text('Record A/B ~90° apart; roundness = |A − B|'),
-                value: _crossSections,
-                onChanged: (v) => setState(() {
-                  _crossSections = v;
-                  _clearResults();
-                }),
+                value: provider.crossSections,
+                onChanged: (v) => provider.setCrossSections(v),
               ),
+              
               SwitchListTile(
                 title: const Text('Check against manufacturer min/max'),
-                value: _limitsEnabled,
-                onChanged: (v) => setState(() {
-                  _limitsEnabled = v;
-                  _clearResults();
-                }),
+                value: provider.limitsEnabled,
+                onChanged: (v) => provider.setLimitsEnabled(v),
               ),
-              if (_limitsEnabled)
+              
+              if (provider.limitsEnabled)
                 Row(children: [
                   Expanded(child: NumField(controller: _minCtrl, label: 'Piston Min')),
                   const SizedBox(width: 8),
@@ -209,7 +162,7 @@ class _PistonPageState extends State<PistonPage> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: _calculate,
+                  onPressed: () => provider.calculate(),
                   icon: const Icon(Icons.calculate),
                   label: const Text('Calculate'),
                 ),
@@ -230,22 +183,24 @@ class _PistonPageState extends State<PistonPage> {
               const SizedBox(height: 12),
               Column(
                 children: List.generate(
-                    _numPistons,
+                    provider.numPistons,
                     (i) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
-                          child: _crossSections
+                          child: provider.crossSections
                               ? TwoFieldRow(
+                                  key: ValueKey('piston-$i'),
                                   label: 'Piston ${i + 1}',
                                   aCtrl: _pistonA[i],
                                   bCtrl: _pistonB[i],
-                                  roundness: _roundness[i],
-                                  withinA: _withinA[i],
-                                  withinB: _withinB[i],
+                                  roundness: provider.roundness[i],
+                                  withinA: provider.withinA[i],
+                                  withinB: provider.withinB[i],
                                 )
                               : SingleFieldRow(
+                                  key: ValueKey('piston-$i'),
                                   label: 'Piston ${i + 1}',
                                   controller: _pistonA[i],
-                                  within: _withinA[i],
+                                  within: provider.withinA[i],
                                 ),
                         )),
               ),

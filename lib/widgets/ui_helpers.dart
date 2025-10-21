@@ -30,6 +30,7 @@ class NumField extends StatelessWidget {
     return TextField(
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textAlign: TextAlign.center, // <-- CHANGED: Centers the input text
       decoration: InputDecoration(
         border: const OutlineInputBorder(),
         labelText: label,
@@ -49,7 +50,7 @@ class StatusChip extends StatelessWidget {
     if (isOk == null) return const SizedBox.shrink();
 
     final Color base = isOk! ? Colors.green : Colors.red;
-    final Color bg = base.withAlpha(30); // Use a consistent, safe alpha
+    final Color bg = base.withAlpha(30);
     final Color brd = base;
     final Color txt = isOk! ? Colors.green.shade800 : Colors.red.shade800;
 
@@ -100,6 +101,7 @@ class SingleFieldRow extends StatelessWidget {
   }
 }
 
+// --- THIS WIDGET IS UPDATED ---
 /// A row for two cross-section measurement fields (A/B) with status and roundness.
 class TwoFieldRow extends StatelessWidget {
   final String label;
@@ -126,6 +128,7 @@ class TwoFieldRow extends StatelessWidget {
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
+        // Row for A/B fields
         Row(
           children: [
             Expanded(
@@ -147,20 +150,23 @@ class TwoFieldRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             StatusChip(withinB),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 140,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text('Roundness',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Text(roundness == null
-                      ? '—'
-                      : roundness!.toStringAsFixed(5)),
-                ],
-              ),
+          ],
+        ),
+        const SizedBox(height: 8), // <-- CHANGED: Added spacing
+        // Row for Roundness, aligned to the right
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text('Roundness',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Text(roundness == null
+                    ? '—'
+                    : roundness!.toStringAsFixed(5)),
+              ],
             ),
           ],
         ),
@@ -168,6 +174,7 @@ class TwoFieldRow extends StatelessWidget {
     );
   }
 }
+// --- END OF UPDATED WIDGET ---
 
 /// The application icon, with a fallback.
 class AppIcon extends StatelessWidget {
