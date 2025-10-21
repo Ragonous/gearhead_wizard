@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+// Import all providers
 import 'package:gearhead_wizard/providers/turbo_provider.dart';
 import 'package:gearhead_wizard/providers/piston_provider.dart';
 import 'package:gearhead_wizard/providers/connecting_rod_provider.dart';
 import 'package:gearhead_wizard/providers/crankshaft_provider.dart';
 import 'package:gearhead_wizard/providers/engine_provider.dart';
-import 'package:gearhead_wizard/providers/gear_ratio_provider.dart'; // 1. Import new provider
+import 'package:gearhead_wizard/providers/gear_ratio_provider.dart';
+import 'package:gearhead_wizard/providers/camshaft_provider.dart';
 
-// Import all your pages
+// Import all pages
 import 'package:gearhead_wizard/pages/connecting_rod_page.dart';
 import 'package:gearhead_wizard/pages/crankshaft_page.dart';
 import 'package:gearhead_wizard/pages/engine_page.dart';
@@ -15,60 +17,59 @@ import 'package:gearhead_wizard/pages/gear_ratio_calculator_page.dart';
 import 'package:gearhead_wizard/pages/home_page.dart';
 import 'package:gearhead_wizard/pages/piston_page.dart';
 import 'package:gearhead_wizard/pages/turbo_calculator_page.dart';
+import 'package:gearhead_wizard/pages/camshaft_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Create and load all "brains"
-  final turboProvider = TurboProvider();
-  await turboProvider.loadData();
 
-  final pistonProvider = PistonProvider();
-  await pistonProvider.loadData();
+  // Load all providers
+  final turboProvider = TurboProvider()..loadData();
+  final pistonProvider = PistonProvider()..loadData();
+  final connectingRodProvider = ConnectingRodProvider()..loadData();
+  final crankshaftProvider = CrankshaftProvider()..loadData();
+  final engineProvider = EngineProvider()..loadData();
+  final gearRatioProvider = GearRatioProvider()..loadData();
+  final camshaftProvider = CamshaftProvider()..loadData();
 
-  final connectingRodProvider = ConnectingRodProvider();
-  await connectingRodProvider.loadData();
-
-  final crankshaftProvider = CrankshaftProvider();
-  await crankshaftProvider.loadData();
-
-  final engineProvider = EngineProvider();
-  await engineProvider.loadData();
-
-  // 2. Create and load new provider
-  final gearRatioProvider = GearRatioProvider();
-  await gearRatioProvider.loadData();
+  // Await all futures (more efficient)
+  await Future.wait([
+      turboProvider.loadData(),
+      pistonProvider.loadData(),
+      connectingRodProvider.loadData(),
+      crankshaftProvider.loadData(),
+      engineProvider.loadData(),
+      gearRatioProvider.loadData(),
+      camshaftProvider.loadData(),
+  ]);
 
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => turboProvider),
-        ChangeNotifierProvider(create: (context) => pistonProvider),
-        ChangeNotifierProvider(create: (context) => connectingRodProvider),
-        ChangeNotifierProvider(create: (context) => crankshaftProvider),
-        ChangeNotifierProvider(create: (context) => engineProvider),
-        // 3. Add new provider to the list
-        ChangeNotifierProvider(create: (context) => gearRatioProvider),
+        ChangeNotifierProvider.value(value: turboProvider),
+        ChangeNotifierProvider.value(value: pistonProvider),
+        ChangeNotifierProvider.value(value: connectingRodProvider),
+        ChangeNotifierProvider.value(value: crankshaftProvider),
+        ChangeNotifierProvider.value(value: engineProvider),
+        ChangeNotifierProvider.value(value: gearRatioProvider),
+        ChangeNotifierProvider.value(value: camshaftProvider),
       ],
       child: const GearheadWizardApp(),
     ),
   );
 }
 
-// --- The rest of your file is unchanged ---
-
+// --- GearheadWizardApp --- (Unchanged)
 class GearheadWizardApp extends StatelessWidget {
   const GearheadWizardApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Gearhead Wizard',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF3A4F41), // Dark Olive Green
+          seedColor: const Color(0xFF3A4F41),
           primary: const Color(0xFF3A4F41),
-          secondary: const Color(0xFFD98D30), // Orange accent
+          secondary: const Color(0xFFD98D30),
           brightness: Brightness.light,
         ),
         useMaterial3: true,
@@ -86,6 +87,7 @@ class GearheadWizardApp extends StatelessWidget {
   }
 }
 
+// --- RootScaffold --- (Unchanged)
 class RootScaffold extends StatefulWidget {
   const RootScaffold({super.key});
   @override
@@ -114,17 +116,19 @@ class _RootScaffoldState extends State<RootScaffold> {
       const EnginePage(),
       const ConnectingRodPage(),
       const PistonPage(),
+      const CamshaftPage(),
     ];
   }
 
   final _titles = const [
     'Home',
-    'Turbo Calculator',
-    'Gear Ratio Calculator',
+    'Turbo Calc',
+    'Gear Calc',
     'Crankshaft',
     'Engine',
-    'Connecting Rod',
-    'Piston'
+    'Con. Rod',
+    'Piston',
+    'Camshaft',
   ];
 
   final _icons = const [
@@ -135,6 +139,7 @@ class _RootScaffoldState extends State<RootScaffold> {
     'assets/icons/engine_icon.png',
     'assets/icons/rod_icon.png',
     'assets/icons/piston_icon.png',
+    'assets/icons/camshaft_icon.png',
   ];
 
   @override
@@ -150,7 +155,7 @@ class _RootScaffoldState extends State<RootScaffold> {
               showAboutDialog(
                 context: context,
                 applicationName: 'Gearhead Wizard',
-                applicationVersion: '1.0.0',
+                applicationVersion: '1.0.0', // Consider updating version later
                 applicationIcon: const AppIcon(size: 48),
                 children: const [
                   SizedBox(height: 8),
@@ -167,9 +172,10 @@ class _RootScaffoldState extends State<RootScaffold> {
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: List.generate(_titles.length, (i) {
+          final label = _titles[i]; // Use shortened title directly now
           return NavigationDestination(
             icon: ImageIcon(AssetImage(_icons[i]), size: 28),
-            label: _titles[i] == 'Connecting Rod' ? 'Con. Rod' : _titles[i],
+            label: label,
           );
         }),
       ),
@@ -177,10 +183,10 @@ class _RootScaffoldState extends State<RootScaffold> {
   }
 }
 
+// --- AppIcon --- (Unchanged)
 class AppIcon extends StatelessWidget {
   final double size;
   const AppIcon({super.key, required this.size});
-
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
